@@ -236,6 +236,20 @@ function showUpdateStatus(status) {
   $('#checkUpdates').textContent = status.state === 'checking' ? 'Buscando…' : downloading ? 'Descargando…' : 'Buscar ahora';
   $('#installUpdate').classList.toggle('hidden', !ready);
   $('#installUpdate').disabled = !ready;
+
+  const toast = $('#updateToast');
+  toast.dataset.version = String(status.version || '');
+  const toastReady = ready && sessionStorage.getItem('dismissedUpdateVersion') !== String(status.version || '');
+  const toastVisible = downloading || toastReady;
+  toast.classList.toggle('hidden', !toastVisible);
+  $('#updateToastTitle').textContent = ready ? 'Actualización lista' : 'Descargando actualización';
+  $('#updateToastMessage').textContent = ready
+    ? `Bit by Orbit ${status.version || 'nuevo'} se instalará al reiniciar o cerrar la app.`
+    : status.message || 'La actualización se está descargando en segundo plano.';
+  $('#updateToastProgress').classList.toggle('hidden', !downloading);
+  $('#updateToastProgressBar').style.width = `${percent}%`;
+  $('#updateToastInstall').classList.toggle('hidden', !ready);
+  $('#updateToastDismiss').classList.toggle('hidden', !ready);
 }
 async function initializeUpdateUI() {
   if (!window.nexoUpdate) {
@@ -847,6 +861,16 @@ async function initializeApp() {
 }
 
 $('#newChat').addEventListener('click', () => createThread(selectedAgent));
+$('#updateToastInstall').addEventListener('click', async () => {
+  $('#updateToastInstall').disabled = true;
+  $('#updateToastMessage').textContent = 'Reiniciando para instalar…';
+  await window.nexoUpdate?.install();
+});
+$('#updateToastDismiss').addEventListener('click', () => {
+  const version = $('#updateToast').dataset.version;
+  sessionStorage.setItem('dismissedUpdateVersion', version);
+  $('#updateToast').classList.add('hidden');
+});
 $('#composer').addEventListener('submit', (event) => { event.preventDefault(); sendMessage(); });
 $('#stopButton').addEventListener('click', () => activeGeneration?.abort());
 $('#prompt').addEventListener('input', autoResize);
