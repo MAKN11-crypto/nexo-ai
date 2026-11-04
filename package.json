@@ -1,0 +1,60 @@
+{
+  "name": "nexo-ai",
+  "description": "Asistente personal de inteligencia artificial local y multiagente",
+  "version": "0.9.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "desktop": "electron desktop/main.js",
+    "package:mac": "electron-builder --mac",
+    "prepackage:win": "node scripts/verify-release-tag.js && node scripts/write-update-config.js",
+    "postpackage:mac": "node scripts/create-update-manifests.js",
+    "package:win": "electron-builder --win",
+    "postpackage:win": "node scripts/create-update-manifests.js",
+    "package:linux": "electron-builder --linux",
+    "postpackage:linux": "node scripts/create-update-manifests.js"
+  },
+  "main": "desktop/main.js",
+  "devDependencies": {
+    "electron": "^44.10.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ai.nexo.desktop",
+    "productName": "Nexo",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "server.js",
+      "desktop/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  }
+}
