@@ -10,7 +10,7 @@
     "package:mac": "electron-builder --mac",
     "prepackage:win": "node scripts/verify-release-tag.js && node scripts/write-update-config.js",
     "postpackage:mac": "node scripts/create-update-manifests.js",
-    "package:win": "electron-builder --win",
+    "package:win": "electron-builder --win --publish never",
     "postpackage:win": "node scripts/create-update-manifests.js",
     "package:linux": "electron-builder --linux",
     "postpackage:linux": "node scripts/create-update-manifests.js"
