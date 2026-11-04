@@ -217,7 +217,21 @@ function renderMemoryPanel() {
 function showUpdateStatus(status) {
   if (!status) return;
   $('#updateStatus').textContent = status.message || 'Actualización en curso…';
-  $('#installUpdate').classList.toggle('hidden', status.state !== 'ready');
+  const percent = Math.max(0, Math.min(100, Math.round(Number(status.percent) || 0)));
+  const downloading = status.state === 'downloading';
+  const busy = status.state === 'checking' || downloading;
+  const ready = status.state === 'ready';
+  $('#updateProgress').classList.toggle('hidden', !downloading);
+  $('#updateProgressBar').style.width = `${percent}%`;
+  $('#updateProgress').setAttribute('role', 'progressbar');
+  $('#updateProgress').setAttribute('aria-valuemin', '0');
+  $('#updateProgress').setAttribute('aria-valuemax', '100');
+  $('#updateProgress').setAttribute('aria-valuenow', String(percent));
+  $('#updatePercent').textContent = `${percent}%`;
+  $('#checkUpdates').disabled = busy || ready;
+  $('#checkUpdates').textContent = status.state === 'checking' ? 'Buscando…' : downloading ? 'Descargando…' : 'Buscar ahora';
+  $('#installUpdate').classList.toggle('hidden', !ready);
+  $('#installUpdate').disabled = !ready;
 }
 async function initializeUpdateUI() {
   if (!window.nexoUpdate) {

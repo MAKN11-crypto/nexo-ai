@@ -26,6 +26,7 @@ button:disabled{cursor:not-allowed;opacity:.58}
 .sidebar{width:272px;flex-basis:272px;padding:24px 15px 16px;background:#131611}
 .brand-row{padding-bottom:25px}.brand{font-size:20px}.brand-mark{width:28px;height:28px;border-radius:9px}
 .brand{display:inline-flex;align-items:center;gap:9px;font-weight:650;letter-spacing:-.04em}.brand-logo{width:31px;height:31px;object-fit:cover;border-radius:9px;box-shadow:0 0 20px #a974ff22}
+.update-progress{margin-top:12px;padding:10px 11px;border:1px solid #342a40;border-radius:9px;background:#1b1720}.update-progress .progress-track{height:6px;background:#302638}.update-progress .progress-caption{font-size:10px;color:#c7b9d7}.update-progress .progress-track span{background:linear-gradient(90deg,#8d48dc,#d1a5ff)}
 .new-chat{min-height:43px;background:#20251d;border-color:#353d30;font-size:13px}
 .sidebar-label{font-size:10px;letter-spacing:.1em;color:#979e8f}.nav-item{min-height:39px;font-size:13px;border-radius:8px}.nav-item.active{background:#22291d;color:#e9f3dc}
 .conversation{min-height:37px;font-size:12px}.local-card{padding:11px 9px}.local-card strong{font-size:12px}.local-card small{font-size:10px}.profile-copy strong{font-size:12px}.profile-copy small{font-size:10px}
