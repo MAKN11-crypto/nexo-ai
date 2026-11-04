@@ -413,7 +413,7 @@ function exportWorkspaceBackup() {
 async function importWorkspaceBackup(file) {
   if (!file || file.size > 75 * 1024 * 1024) throw new Error('El respaldo supera el límite de 75 MB.');
   const backup = JSON.parse(await file.text());
-  if (backup?.format !== 'nexo-workspace' || backup.version !== 1 || !Array.isArray(backup.threads) || backup.threads.length > 2000) throw new Error('El archivo no es un respaldo de Nexo compatible.');
+  if (backup?.format !== 'nexo-workspace' || backup.version !== 1 || !Array.isArray(backup.threads) || backup.threads.length > 2000) throw new Error('El archivo no es un respaldo de Bit by Orbit compatible.');
   const validThreads = backup.threads.filter((thread) => thread && typeof thread.id === 'string' && typeof thread.title === 'string' && Array.isArray(thread.messages) && thread.messages.length <= 2000 && thread.messages.every((message) => message && ['user', 'assistant'].includes(message.role) && typeof message.content === 'string'));
   const existing = new Set(store.threads.map((thread) => thread.id));
   const imported = validThreads.filter((thread) => { if (existing.has(thread.id)) return false; existing.add(thread.id); return true; });
@@ -455,7 +455,7 @@ function renderSkills() {
   updateOwnerControls();
   const autoToggle = $('#autoWebLearning');
   if (autoToggle) autoToggle.checked = ownerWebLearningEnabled;
-  if (!store.skills.length) { list.textContent = 'Aún no hay habilidades. Describe una para que Nexo prepare un borrador.'; return; }
+  if (!store.skills.length) { list.textContent = 'Aún no hay habilidades. Describe una para que Bit by Orbit prepare un borrador.'; return; }
   store.skills.forEach((skill) => {
     const card = document.createElement('article'); card.className = 'skill-card';
     const heading = document.createElement('div'); heading.className = 'skill-card-heading';
@@ -469,7 +469,7 @@ function renderSkills() {
       const actions = document.createElement('div'); actions.className = 'skill-actions';
       const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'secondary-button'; toggle.textContent = skill.state === 'active' ? 'Pausar' : 'Revisar y activar';
       toggle.addEventListener('click', () => {
-        if (skill.state !== 'active' && !confirm(`¿Activar “${skill.name}” para que Nexo use estas instrucciones en chats relacionados? Revisa sus fuentes primero.`)) return;
+        if (skill.state !== 'active' && !confirm(`¿Activar “${skill.name}” para que Bit by Orbit use estas instrucciones en chats relacionados? Revisa sus fuentes primero.`)) return;
         if (skill.state !== 'active' && skill.autoUpdate && skill.originSkillId) {
           const previous = store.skills.find((item) => item.id === skill.originSkillId);
           if (previous) { previous.state = 'draft'; previous.updated = Date.now(); }
@@ -510,7 +510,7 @@ async function runAutomaticLearning() {
     if (result.status === 'draft' && result.skill) {
       store.skills = [result.skill, ...store.skills.filter((skill) => skill.id !== result.skill.id)].slice(0, 100);
       persist(); renderSkills();
-      if (status) status.textContent = `Nexo preparó una actualización de “${candidate.name}”. Revisa el borrador y sus fuentes para activarla.`;
+      if (status) status.textContent = `Bit by Orbit preparó una actualización de “${candidate.name}”. Revisa el borrador y sus fuentes para activarla.`;
     } else if (status) status.textContent = result.status === 'current' ? `“${candidate.name}” sigue al día; revisaré otra habilidad más tarde.` : `Revisé “${candidate.name}”; no encontré novedades suficientes para proponer un cambio.`;
   } catch (error) { if (status) status.textContent = error.message; }
   finally { autoLearningBusy = false; }
@@ -716,7 +716,7 @@ function localSpanishVoice() {
 function startVoiceRecognition() {
   if (!voiceModeEnabled || voiceRecognition) return;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) { stopVoiceMode('Este navegador no ofrece reconocimiento de voz sin conexión. Usa el dictado del sistema; Nexo no enviará tu audio.'); return; }
+  if (!Recognition) { stopVoiceMode('Este navegador no ofrece reconocimiento de voz sin conexión. Usa el dictado del sistema; Bit by Orbit no enviará tu audio.'); return; }
   let recognition;
   try { recognition = new Recognition(); }
   catch { stopVoiceMode('No pude abrir el reconocimiento de voz local en este navegador.'); return; }
@@ -765,7 +765,7 @@ function speakVoiceResponse(text) {
   const utterance = new SpeechSynthesisUtterance(String(text).slice(0, 8_000));
   utterance.voice = voice;
   utterance.lang = voice.lang;
-  utterance.onstart = () => voiceStatus(`Nexo responde con la voz local ${voice.name}…`, true);
+  utterance.onstart = () => voiceStatus(`Bit by Orbit responde con la voz local ${voice.name}…`, true);
   utterance.onend = () => { if (voiceModeEnabled) setTimeout(startVoiceRecognition, 450); };
   utterance.onerror = () => { if (voiceModeEnabled) setTimeout(startVoiceRecognition, 450); };
   speech.speak(utterance);
@@ -817,7 +817,7 @@ async function initializeApp() {
   startAutomaticLearning();
   if (!statusSnapshot.connected) {
     $('#settingsDialog').showModal();
-    $('#settingsMessage').textContent = 'Sigue los pasos de Ollama aquí. No necesitas cuenta ni claves; el modelo se descarga desde Nexo.';
+    $('#settingsMessage').textContent = 'Sigue los pasos de Ollama aquí. No necesitas cuenta ni claves; el modelo se descarga desde Bit by Orbit.';
     return;
   }
   await prepareLocalModel();
@@ -861,7 +861,7 @@ $('#startOllama').addEventListener('click', async () => {
   status.textContent = 'Buscando Ollama e intentando iniciarlo…';
   try {
     const result = await window.nexoRuntime?.startOllama();
-    if (!result) { status.textContent = `Abre Ollama desde ${appLocation} y luego vuelve a Nexo para comprobar la conexión.`; return; }
+    if (!result) { status.textContent = `Abre Ollama desde ${appLocation} y luego vuelve a Bit by Orbit para comprobar la conexión.`; return; }
     if (!result.connected) {
       status.textContent = result.installed
         ? `Encontré Ollama, pero aún no responde. Ábrelo desde ${appLocation}, espera unos segundos y vuelve a pulsar este botón.`
@@ -869,7 +869,7 @@ $('#startOllama').addEventListener('click', async () => {
       return;
     }
     await refreshStatus();
-    status.textContent = 'Ollama conectado. Preparando el modelo para Nexo…';
+    status.textContent = 'Ollama conectado. Preparando el modelo para Bit by Orbit…';
     await prepareLocalModel();
   } catch (error) { status.textContent = error.message || 'No pude iniciar Ollama. Ábrelo desde el menú Inicio e inténtalo de nuevo.'; }
   finally { button.disabled = false; }

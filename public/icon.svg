@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="19" fill="#b8f36b"/><path d="M15 31.5h34M32 15v34M20 20l24 24m0-24L20 44" stroke="#151712" stroke-width="5" stroke-linecap="round"/><circle cx="32" cy="32" r="8" fill="#b8f36b" stroke="#151712" stroke-width="4"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="tile" x1="28" y1="14" x2="227" y2="244" gradientUnits="userSpaceOnUse"><stop stop-color="#160d28"/><stop offset="1" stop-color="#090710"/></linearGradient>
+    <linearGradient id="b" x1="76" y1="48" x2="196" y2="216" gradientUnits="userSpaceOnUse"><stop stop-color="#7828db"/><stop offset=".48" stop-color="#a354f3"/><stop offset="1" stop-color="#641bc0"/></linearGradient>
+    <linearGradient id="orbit" x1="28" y1="176" x2="232" y2="82" gradientUnits="userSpaceOnUse"><stop stop-color="#9d4bff"/><stop offset=".55" stop-color="#e4c4ff"/><stop offset="1" stop-color="#a54dff"/></linearGradient>
+    <linearGradient id="gold" x1="112" y1="110" x2="144" y2="146" gradientUnits="userSpaceOnUse"><stop stop-color="#fff0ba"/><stop offset="1" stop-color="#e8ad40"/></linearGradient>
+    <filter id="glow" x="0" y="0" width="256" height="256" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#tile)"/>
+  <rect x="1" y="1" width="254" height="254" rx="47" stroke="#a974ff" stroke-opacity=".24" stroke-width="2"/>
+  <ellipse cx="128" cy="128" rx="112" ry="48" transform="rotate(-28 128 128)" stroke="url(#orbit)" stroke-opacity=".55" stroke-width="9" filter="url(#glow)"/>
+  <path d="M75 43h64c34 0 55 18 55 47 0 18-9 31-25 39 21 6 34 21 34 44 0 29-22 46-58 46H75V43Z" fill="url(#b)"/>
+  <path d="M108 72v44h29c15 0 23-8 23-22 0-14-8-22-23-22h-29Zm0 69v44h37c17 0 26-8 26-22s-9-22-26-22h-37Z" fill="#150b26"/>
+  <ellipse cx="128" cy="128" rx="112" ry="48" transform="rotate(-28 128 128)" stroke="url(#orbit)" stroke-width="7"/>
+  <path d="m128 106 7 15 15 7-15 7-7 15-7-15-15-7 15-7 7-15Z" fill="url(#gold)"/>
+</svg>
+

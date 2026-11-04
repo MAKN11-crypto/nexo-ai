@@ -11,7 +11,7 @@ let port;
 let window;
 let ollamaProcess;
 let updateConfigFile;
-let updaterStatus = { state: 'idle', message: 'Nexo buscará automáticamente versiones nuevas en su repositorio de GitHub.' };
+let updaterStatus = { state: 'idle', message: 'Bit by Orbit buscará automáticamente versiones nuevas en su repositorio de GitHub.' };
 
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
@@ -60,13 +60,13 @@ async function waitForApp() {
     try { const response = await fetch(`http://127.0.0.1:${port}/api/status`); if (response.ok) return; } catch {}
     await wait(150);
   }
-  throw new Error('Nexo no pudo iniciar su servicio local.');
+  throw new Error('Bit by Orbit no pudo iniciar su servicio local.');
 }
 
 async function createWindow() {
   window = new BrowserWindow({
     width: 1440, height: 960, minWidth: 820, minHeight: 640,
-    backgroundColor: '#11120f', title: 'Nexo',
+    backgroundColor: '#11120f', title: 'Bit by Orbit',
     webPreferences: { preload: path.join(path.dirname(fileURLToPath(import.meta.url)), 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -115,10 +115,10 @@ autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.on('checking-for-update', () => publishUpdateStatus('checking', 'Buscando actualizaciones…'));
 autoUpdater.on('update-available', (info) => publishUpdateStatus('downloading', `Versión ${info.version} disponible. Descargándola en segundo plano…`, { version: info.version }));
-autoUpdater.on('update-not-available', () => publishUpdateStatus('current', 'Nexo está actualizado.'));
+autoUpdater.on('update-not-available', () => publishUpdateStatus('current', 'Bit by Orbit está actualizado.'));
 autoUpdater.on('download-progress', (progress) => publishUpdateStatus('downloading', `Descargando actualización… ${Math.round(progress.percent)}%`, { percent: Math.round(progress.percent) }));
-autoUpdater.on('update-downloaded', (info) => publishUpdateStatus('ready', `Versión ${info.version} lista. Reinicia Nexo ahora o se instalará al cerrar la app.`, { version: info.version }));
-autoUpdater.on('error', (error) => publishUpdateStatus('error', `No pude actualizar Nexo: ${error.message}`));
+autoUpdater.on('update-downloaded', (info) => publishUpdateStatus('ready', `Versión ${info.version} lista. Reinicia Bit by Orbit ahora o se instalará al cerrar la app.`, { version: info.version }));
+autoUpdater.on('error', (error) => publishUpdateStatus('error', `No pude actualizar Bit by Orbit: ${error.message}`));
 
 ipcMain.handle('updates:get-config', async () => ({ repository: (await readUpdateConfig())?.repository || '', version: app.getVersion(), status: updaterStatus }));
 ipcMain.handle('updates:configure', async (_event, input) => {
@@ -158,7 +158,7 @@ app.whenReady().then(async () => {
     await createWindow();
     setTimeout(() => checkForUpdates(), 12_000);
   } catch (error) {
-    await dialog.showMessageBox({ type: 'error', title: 'Nexo no pudo iniciar', message: error.message });
+    await dialog.showMessageBox({ type: 'error', title: 'Bit by Orbit no pudo iniciar', message: error.message });
     app.quit();
   }
 });
