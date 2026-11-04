@@ -17,7 +17,7 @@ Nexo es el prototipo de una app de IA personal, local y multiagente. La interfaz
 - Respuesta progresiva por streaming y botón para detener generación.
 - Conversación por voz en la app: dictado sin conexión cuando el navegador lo admite y respuesta hablada con una voz española instalada localmente. Nexo no graba ni sube el audio; si falta soporte local, muestra cómo usar el dictado del sistema.
 - Procedencia visible por respuesta: identifica el proveedor, el modelo y si el procesamiento fue local; las respuestas externas quedan fuera de la exportación de ejemplos de entrenamiento.
-- Protección del anfitrión: una sola generación usa el modelo local a la vez para reducir picos de RAM; los invitados no pueden descargar modelos ni ver/enviar el enlace de invitación desde el estado de la app.
+- Protección del anfitrión: una sola generación usa el modelo local a la vez para reducir picos de RAM; hasta tres solicitudes adicionales esperan su turno en vez de fallar. Las solicitudes que excedan la cola se pueden volver a intentar después. Los invitados no pueden descargar modelos ni ver/enviar el enlace de invitación desde el estado de la app.
 - Descarga de modelos compatibles desde la biblioteca de la app, con progreso.
 - Catálogo con modelos de texto/imagen de 4B, 9B y 27B y un modelo de razonamiento de 14B. El 9B es la opción inicial recomendada; 27B es experimental en 32 GB de RAM.
 - Adjuntar hasta cuatro archivos de texto/código por mensaje. El navegador los lee localmente, y su contenido se manda al modelo local como contexto.

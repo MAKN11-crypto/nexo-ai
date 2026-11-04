@@ -9,7 +9,7 @@ on:
       release_tag:
         description: Etiqueta de versión que coincide con package.json
         required: true
-        default: v0.9.8
+        default: v0.9.9
         type: string
 
 permissions:

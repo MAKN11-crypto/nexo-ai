@@ -75,6 +75,8 @@ function isLoopback(req) {
 const ownerSessions = new Map();
 const ownerAttempts = new Map();
 let activeChatRequests = 0;
+const chatQueue = [];
+const maxQueuedChatRequests = 3;
 let ollamaBusy = false;
 function cookieValue(req, name) {
   return String(req.headers.cookie || '').split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1) || '';
@@ -359,6 +361,34 @@ function streamResponse(res) {
   return (event) => !res.destroyed && !res.writableEnded && res.write(`${JSON.stringify(event)}\n`);
 }
 
+function acquireChatSlot(signal, send) {
+  if (signal.aborted) return Promise.resolve(false);
+  if (activeChatRequests === 0) { activeChatRequests = 1; return Promise.resolve(true); }
+  return new Promise((resolve) => {
+    const entry = { signal, send, resolve, onAbort: null };
+    entry.onAbort = () => {
+      const index = chatQueue.indexOf(entry);
+      if (index >= 0) chatQueue.splice(index, 1);
+      resolve(false);
+    };
+    chatQueue.push(entry);
+    signal.addEventListener('abort', entry.onAbort, { once: true });
+    send({ type: 'status', message: `Tu solicitud está en cola (${chatQueue.length} delante). Empezará cuando el modelo local quede libre.` });
+  });
+}
+
+function releaseChatSlot() {
+  while (chatQueue.length) {
+    const next = chatQueue.shift();
+    next.signal.removeEventListener('abort', next.onAbort);
+    if (next.signal.aborted) { next.resolve(false); continue; }
+    next.send({ type: 'status', message: 'El modelo local quedó libre. Tu solicitud empieza ahora…' });
+    next.resolve(true);
+    return;
+  }
+  activeChatRequests = 0;
+}
+
 function decodeHtml(value) {
   return String(value).replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -606,9 +636,10 @@ async function handle(req, res) {
       const originalPrompt = String(input.prompt || '').trim();
       if (!originalPrompt) return json(res, 400, { error: 'Escribe un mensaje para empezar.' });
       if (originalPrompt.length > 20_000) return json(res, 413, { error: 'El mensaje supera el límite de 20,000 caracteres.' });
-      if (activeChatRequests >= 1) return json(res, 429, { error: 'Nexo ya está generando una respuesta. Espera a que termine para iniciar otra y cuidar la memoria del equipo.' });
-      activeChatRequests += 1;
-      acquiredChatSlot = true;
+      if (activeChatRequests >= 1 && chatQueue.length >= maxQueuedChatRequests) return json(res, 429, { error: 'El equipo ya tiene una respuesta en curso y tres solicitudes en espera. Inténtalo de nuevo cuando haya terminado alguna.' });
+      send = streamResponse(res);
+      acquiredChatSlot = await acquireChatSlot(abortController.signal, send);
+      if (!acquiredChatSlot) { if (!res.destroyed && !res.writableEnded) res.end(); return; }
       const settings = await readSettings();
       const limits = modelLimits(settings);
       const teamMode = input.team === true && String(input.agent || 'coordinator') === 'coordinator';
@@ -642,7 +673,6 @@ async function handle(req, res) {
       const skillGuidance = activeSkills.length ? `\n\nHabilidades activadas por el usuario (sigue sus procedimientos cuando sean pertinentes; no afirmes tener herramientas que no estén conectadas):\n${activeSkills.map((skill) => `## ${skill.name}\n${skill.instructions}`).join('\n\n')}` : '';
       let content;
       let steps = [];
-      send = streamResponse(res);
       const contextNotice = warnings.join(' ');
       let sources = [];
       if (input.webSearch === true) {
@@ -691,11 +721,12 @@ async function handle(req, res) {
       send({ type: 'done', content, steps, sources, contextNotice, provenance: { provider: 'ollama', model: settings.model || null, locality: 'local' } });
       return res.end();
     } catch (error) {
+      if (abortController.signal.aborted && res.destroyed) return;
       if (!send) return json(res, 503, { error: error.message || 'No se pudo completar la respuesta.' });
       send({ type: 'error', message: error.message || 'No se pudo completar la respuesta.' });
       return res.end();
     } finally {
-      if (acquiredChatSlot) activeChatRequests = Math.max(0, activeChatRequests - 1);
+      if (acquiredChatSlot) releaseChatSlot();
     }
   }
   if (req.method === 'GET') {
