@@ -227,7 +227,12 @@ async function initializeUpdateUI() {
   }
   window.nexoUpdate.onStatus(showUpdateStatus);
   const config = await window.nexoUpdate.getConfig().catch(() => null);
-  if (config) { $('#nexoVersion').textContent = `Versión ${config.version}`; $('#updateRepository').value = config.repository || ''; showUpdateStatus(config.status); }
+  if (config) {
+    $('#nexoVersion').textContent = `Versión ${config.version}`;
+    $('#updateRepository').value = config.repository || '';
+    if (config.repository) $('#updateRepository').parentElement.classList.add('hidden');
+    showUpdateStatus(config.status);
+  }
 }
 function compressImage(file) {
   return new Promise((resolve, reject) => {
@@ -557,7 +562,7 @@ async function refreshStatus() {
     $('#modelOrigin').textContent = activeModel
       ? `Modelo disponible en este equipo: ${activeModel}. Sus respuestas salen de sus parámetros entrenados y del contexto de este chat.`
       : 'Todavía no hay un modelo instalado. Al descargar uno, sus respuestas saldrán de sus parámetros entrenados y del contexto de este chat.';
-    $('#runtimeMissing').classList.toggle('hidden', statusSnapshot.connected);
+    $('#runtimeSetup').classList.toggle('hidden', statusSnapshot.connected);
     $('#downloadModel').disabled = !statusSnapshot.connected || !canManage;
     const hardware = statusSnapshot.hardware || {};
     $('#hostSpecs').textContent = `${statusSnapshot.computer || 'Equipo anfitrión'} · ${hardware.memoryGB || '?'} GB RAM · ${hardware.platform || 'sistema local'}`;
@@ -785,6 +790,24 @@ function renderFileTray() {
   });
 }
 function closeMobileSidebar() { $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('visible'); }
+async function prepareLocalModel() {
+  if (!statusSnapshot.connected) return;
+  const saved = statusSnapshot.settings?.model || '';
+  if (saved && statusSnapshot.models.includes(saved)) return;
+  const preferred = Number(statusSnapshot.hardware?.memoryGB) >= 24 ? 'qwen3.5:9b' : 'qwen3.5:4b';
+  const available = statusSnapshot.models.find((model) => model.startsWith('qwen3.5:')) || statusSnapshot.models[0];
+  if (available) {
+    const response = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: statusSnapshot.settings?.endpoint || 'http://127.0.0.1:11434', model: available }) });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'No pude seleccionar el modelo local.');
+    await refreshStatus();
+    $('#settingsMessage').textContent = `Ollama está listo. Se usará ${available}.`;
+    return;
+  }
+  $('#catalogSelect').value = preferred;
+  $('#settingsMessage').textContent = `Ollama está listo. Descargando ${preferred}; ocupa varios GB y puede tardar.`;
+  $('#downloadModel').click();
+}
 async function initializeApp() {
   $('#shortcutHint').textContent = navigator.platform.toLowerCase().includes('mac') ? '⌘ K' : 'Ctrl K';
   await initializeUpdateUI();
@@ -794,22 +817,10 @@ async function initializeApp() {
   startAutomaticLearning();
   if (!statusSnapshot.connected) {
     $('#settingsDialog').showModal();
-    $('#settingsMessage').textContent = 'Hace falta el motor local para usar modelos. Esta versión abre el instalador oficial desde Ajustes.';
+    $('#settingsMessage').textContent = 'Sigue los pasos de Ollama aquí. No necesitas cuenta ni claves; el modelo se descarga desde Nexo.';
     return;
   }
-  if (statusSnapshot.settings?.model && statusSnapshot.models.includes(statusSnapshot.settings.model)) return;
-  const preferred = Number(statusSnapshot.hardware?.memoryGB) >= 24 ? 'qwen3.5:9b' : 'qwen3.5:4b';
-  const available = statusSnapshot.models.find((model) => model.startsWith('qwen3.5:')) || statusSnapshot.models[0];
-  if (available) {
-    $('#modelSelect').value = available;
-    await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: statusSnapshot.settings.endpoint, model: available }) });
-    await refreshStatus();
-    return;
-  }
-  $('#catalogSelect').value = preferred;
-  $('#settingsDialog').showModal();
-  $('#settingsMessage').textContent = 'Preparando el modelo recomendado para este equipo. La descarga no cuesta dinero y ocupa varios GB.';
-  $('#downloadModel').click();
+  await prepareLocalModel();
 }
 
 $('#newChat').addEventListener('click', () => createThread(selectedAgent));
@@ -843,6 +854,25 @@ $('#prompt').addEventListener('keydown', (event) => { if (event.key === 'Enter' 
 $('#agentPicker').addEventListener('click', () => $('#agentMenu').classList.toggle('hidden'));
 $('#openSettings').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
 $('#topSettings').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
+$('#startOllama').addEventListener('click', async () => {
+  const button = $('#startOllama'); const status = $('#ollamaSetupStatus');
+  button.disabled = true;
+  status.textContent = 'Buscando Ollama e intentando iniciarlo…';
+  try {
+    const result = await window.nexoRuntime?.startOllama();
+    if (!result) { status.textContent = 'Abre Ollama desde el menú Inicio y luego vuelve a Nexo para comprobar la conexión.'; return; }
+    if (!result.connected) {
+      status.textContent = result.installed
+        ? 'Encontré Ollama, pero aún no responde. Ábrelo desde el menú Inicio, espera unos segundos y vuelve a pulsar este botón.'
+        : 'No encontré Ollama instalado. Descárgalo e instálalo con las opciones predeterminadas; no necesitas iniciar sesión. Después vuelve y pulsa este botón.';
+      return;
+    }
+    await refreshStatus();
+    status.textContent = 'Ollama conectado. Preparando el modelo para Nexo…';
+    await prepareLocalModel();
+  } catch (error) { status.textContent = error.message || 'No pude iniciar Ollama. Ábrelo desde el menú Inicio e inténtalo de nuevo.'; }
+  finally { button.disabled = false; }
+});
 $('#refreshModels').addEventListener('click', async () => {
   const message = $('#settingsMessage'); message.textContent = 'Guardando dirección y buscando modelos…';
   try {

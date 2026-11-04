@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
@@ -10,7 +11,7 @@ let port;
 let window;
 let ollamaProcess;
 let updateConfigFile;
-let updaterStatus = { state: 'idle', message: 'Configura el repositorio de GitHub que publica Nexo.' };
+let updaterStatus = { state: 'idle', message: 'Nexo buscará automáticamente versiones nuevas en su repositorio de GitHub.' };
 
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
@@ -27,17 +28,31 @@ async function ollamaIsReady() {
   catch { return false; }
 }
 
+function findOllamaExecutable() {
+  const command = process.platform === 'win32' ? 'ollama.exe' : 'ollama';
+  const lookup = spawnSync(process.platform === 'win32' ? 'where.exe' : 'which', [command], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+  const fromPath = lookup.status === 0 ? lookup.stdout.split(/\r?\n/).map((item) => item.trim()).find(Boolean) : '';
+  if (fromPath) return fromPath;
+  const candidates = process.platform === 'win32' ? [
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe'),
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Ollama', 'ollama.exe'),
+  ] : process.platform === 'darwin' ? ['/usr/local/bin/ollama', '/opt/homebrew/bin/ollama', '/Applications/Ollama.app/Contents/Resources/ollama'] : [];
+  return candidates.find((candidate) => existsSync(candidate)) || '';
+}
+
 async function startExistingOllama() {
-  if (await ollamaIsReady()) return true;
-  const check = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['ollama'], { stdio: 'ignore', windowsHide: true });
-  if (check.status !== 0) return false;
-  ollamaProcess = spawn('ollama', ['serve'], { stdio: 'ignore', windowsHide: true });
+  if (await ollamaIsReady()) return { installed: true, connected: true };
+  const executable = findOllamaExecutable();
+  if (!executable) return { installed: false, connected: false };
+  let failedToStart = false;
+  ollamaProcess = spawn(executable, ['serve'], { stdio: 'ignore', windowsHide: true });
+  ollamaProcess.once('error', () => { failedToStart = true; });
   for (let attempt = 0; attempt < 35; attempt += 1) {
-    if (await ollamaIsReady()) return true;
-    if (ollamaProcess.exitCode !== null) return false;
+    if (await ollamaIsReady()) return { installed: true, connected: true };
+    if (failedToStart || ollamaProcess.exitCode !== null) return { installed: true, connected: false };
     await wait(400);
   }
-  return false;
+  return { installed: true, connected: false };
 }
 
 async function waitForApp() {
@@ -127,6 +142,7 @@ ipcMain.handle('updates:install', async () => {
   autoUpdater.quitAndInstall();
   return { ok: true };
 });
+ipcMain.handle('ollama:start', () => startExistingOllama());
 
 app.whenReady().then(async () => {
   app.setName('Nexo');

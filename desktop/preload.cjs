@@ -11,3 +11,7 @@ contextBridge.exposeInMainWorld('nexoUpdate', {
     return () => ipcRenderer.removeListener('updates:status', listener);
   },
 });
+
+contextBridge.exposeInMainWorld('nexoRuntime', {
+  startOllama: () => ipcRenderer.invoke('ollama:start'),
+});
