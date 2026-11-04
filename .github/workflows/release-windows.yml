@@ -1,9 +1,7 @@
 name: Publicar instalador de Nexo para Windows
 
 on:
-  push:
-    tags:
-      - 'v*'
+  push: {}
   workflow_dispatch:
     inputs:
       release_tag:
@@ -17,6 +15,14 @@ permissions:
 
 jobs:
   release-windows:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.ref == 'refs/heads/MAKN10' && (
+        contains(github.event.head_commit.added, 'package.json') ||
+        contains(github.event.head_commit.modified, 'package.json') ||
+        contains(github.event.head_commit.added, 'package-lock.json') ||
+        contains(github.event.head_commit.modified, 'package-lock.json')
+      ))
     runs-on: windows-latest
     steps:
       - name: Obtener el código
@@ -28,6 +34,17 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Elegir etiqueta de versión
+        id: release
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.release_tag }}"
+          if (-not $tag) {
+            $version = node -p "require('./package.json').version"
+            $tag = "v$version"
+          }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - name: Instalar dependencias
         run: npm ci
 
@@ -35,13 +52,13 @@ jobs:
         run: npm run package:win
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
 
       - name: Publicar los instaladores y el manifiesto
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || github.ref_name }}
-          name: Nexo ${{ inputs.release_tag || github.ref_name }}
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: Nexo ${{ steps.release.outputs.tag }}
           generate_release_notes: true
           files: |
             dist/*.exe
