@@ -1,13 +1,14 @@
 {
   "name": "nexo-ai",
   "description": "Asistente personal de inteligencia artificial local y multiagente",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "desktop": "electron desktop/main.js",
-    "package:mac": "electron-builder --mac",
+    "prepackage:mac": "node scripts/verify-release-tag.js && node scripts/write-update-config.js",
+    "package:mac": "electron-builder --mac --arm64 --publish never",
     "prepackage:win": "node scripts/verify-release-tag.js && node scripts/write-update-config.js",
     "postpackage:mac": "node scripts/create-update-manifests.js",
     "package:win": "electron-builder --win --publish never",

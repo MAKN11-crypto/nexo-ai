@@ -1,4 +1,4 @@
-name: Publicar instalador de Nexo para Windows
+name: Publicar instaladores de Nexo para Windows y Mac
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       release_tag:
         description: Etiqueta de versión que coincide con package.json
         required: true
-        default: v0.9.2
+        default: v0.9.3
         type: string
 
 permissions:
@@ -79,3 +79,38 @@ jobs:
             dist/*.zip
             dist/*.yml
             dist/*.blockmap
+
+  release-macos:
+    needs: [determine-release, release-windows]
+    if: needs.determine-release.outputs.should_release == 'true'
+    permissions:
+      contents: write
+    runs-on: macos-latest
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Crear app para Mac Apple Silicon
+        run: npm run package:mac
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.determine-release.outputs.release_tag }}
+
+      - name: Publicar instalador y actualización para Mac
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.determine-release.outputs.release_tag }}
+          name: Nexo ${{ needs.determine-release.outputs.release_tag }}
+          files: |
+            dist/*.dmg
+            dist/*mac*.zip
+            dist/latest-mac.yml

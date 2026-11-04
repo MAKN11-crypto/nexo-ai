@@ -856,14 +856,15 @@ $('#openSettings').addEventListener('click', () => { refreshStatus(); $('#settin
 $('#topSettings').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
 $('#startOllama').addEventListener('click', async () => {
   const button = $('#startOllama'); const status = $('#ollamaSetupStatus');
+  const appLocation = statusSnapshot.hardware?.platform === 'darwin' ? 'Aplicaciones' : 'el menú Inicio';
   button.disabled = true;
   status.textContent = 'Buscando Ollama e intentando iniciarlo…';
   try {
     const result = await window.nexoRuntime?.startOllama();
-    if (!result) { status.textContent = 'Abre Ollama desde el menú Inicio y luego vuelve a Nexo para comprobar la conexión.'; return; }
+    if (!result) { status.textContent = `Abre Ollama desde ${appLocation} y luego vuelve a Nexo para comprobar la conexión.`; return; }
     if (!result.connected) {
       status.textContent = result.installed
-        ? 'Encontré Ollama, pero aún no responde. Ábrelo desde el menú Inicio, espera unos segundos y vuelve a pulsar este botón.'
+        ? `Encontré Ollama, pero aún no responde. Ábrelo desde ${appLocation}, espera unos segundos y vuelve a pulsar este botón.`
         : 'No encontré Ollama instalado. Descárgalo e instálalo con las opciones predeterminadas; no necesitas iniciar sesión. Después vuelve y pulsa este botón.';
       return;
     }
