@@ -10,6 +10,7 @@ import { autoUpdater } from 'electron-updater';
 let port;
 let window;
 let ollamaProcess;
+let ollamaInstallerRunning = false;
 let updateConfigFile;
 let updaterStatus = { state: 'idle', message: 'Bit by Orbit buscará automáticamente versiones nuevas en su repositorio de GitHub.' };
 
@@ -53,6 +54,49 @@ async function startExistingOllama() {
     await wait(400);
   }
   return { installed: true, connected: false };
+}
+
+function publishOllamaInstallStatus(state, message) {
+  window?.webContents.send('ollama:install-status', { state, message });
+}
+
+async function installOllamaWithWinget() {
+  if (process.platform !== 'win32') return { ok: false, message: 'La instalación integrada de Ollama está disponible en Windows. Usa el enlace oficial para este sistema.' };
+  if (await ollamaIsReady()) return { ok: true, ...(await startExistingOllama()), message: 'Ollama ya estaba instalado.' };
+  if (ollamaInstallerRunning) return { ok: false, message: 'La instalación de Ollama ya está en curso.' };
+  ollamaInstallerRunning = true;
+  publishOllamaInstallStatus('installing', 'Descargando e instalando Ollama desde el catálogo de Windows…');
+  try {
+    const exitCode = await new Promise((resolve, reject) => {
+      const child = spawn('winget.exe', [
+        'install', '--exact', '--id', 'Ollama.Ollama', '--source', 'winget',
+        '--accept-source-agreements', '--accept-package-agreements', '--silent',
+      ], { windowsHide: true, stdio: 'ignore' });
+      child.once('error', reject);
+      child.once('close', resolve);
+    });
+    if (exitCode !== 0) throw new Error(`WinGet terminó con código ${exitCode}.`);
+    publishOllamaInstallStatus('starting', 'Ollama quedó instalada. Iniciándola…');
+    const result = await startExistingOllama();
+    const message = result.connected
+      ? 'Ollama está instalada y conectada. Preparando el modelo…'
+      : 'Ollama quedó instalada. Si Windows pide reiniciar, hazlo y vuelve a abrir Bit by Orbit.';
+    publishOllamaInstallStatus(result.connected ? 'ready' : 'installed', message);
+    return { ok: true, ...result, message };
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      await shell.openExternal('https://ollama.com/download').catch(() => {});
+      const message = 'No encontré WinGet en este Windows. Abrí la descarga oficial de Ollama para que puedas instalarla manualmente.';
+      publishOllamaInstallStatus('error', message);
+      return { ok: false, message };
+    }
+    const message = `No pude instalar Ollama con WinGet: ${error.message} Abre su descarga oficial e inténtalo de nuevo.`;
+    await shell.openExternal('https://ollama.com/download').catch(() => {});
+    publishOllamaInstallStatus('error', message);
+    return { ok: false, message };
+  } finally {
+    ollamaInstallerRunning = false;
+  }
 }
 
 async function waitForApp() {
@@ -143,6 +187,7 @@ ipcMain.handle('updates:install', async () => {
   return { ok: true };
 });
 ipcMain.handle('ollama:start', () => startExistingOllama());
+ipcMain.handle('ollama:install', () => installOllamaWithWinget());
 
 app.whenReady().then(async () => {
   app.setName('Nexo');

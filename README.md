@@ -35,7 +35,7 @@ Nexo es el prototipo de una app de IA personal, local y multiagente. La interfaz
 
 ## Limitaciones actuales
 
-La app aún requiere Ollama instalado; Nexo ofrece el enlace oficial y una guía de instalación, intenta iniciar Ollama al abrirse y permite reintentarlo desde Ajustes. No requiere una cuenta de Ollama. Cuando el motor conecta, Nexo descarga desde la app un modelo local; Ollama no se instala automáticamente. El catálogo incluye análisis de fotos con el modelo adecuado; generación de imágenes y videos no está integrada todavía.
+La app requiere Ollama como motor local. En Windows, la app de escritorio permite instalarlo desde WinGet con un botón; en otros sistemas, ofrece el enlace oficial y una guía de instalación. Bit by Orbit intenta iniciar Ollama al abrirse y permite reintentarlo desde Ajustes. No requiere una cuenta de Ollama. Cuando el motor conecta, Bit by Orbit descarga un modelo local; el catálogo incluye análisis de fotos con el modelo adecuado, pero generación de imágenes y videos aún no está integrada.
 
 Los instaladores son específicos de cada sistema: `.exe` para Windows y `.dmg` para Mac Apple Silicon. El paquete de Mac no está firmado ni notarizado, así que macOS puede pedir abrirlo manualmente desde Finder con clic derecho → Abrir. El Galaxy S24 usa la interfaz web adaptable desde el enlace privado de la computadora anfitriona; ambos deben estar en la misma red. Esta versión todavía no publica un APK de Android.
 

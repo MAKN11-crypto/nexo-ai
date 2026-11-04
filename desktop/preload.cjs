@@ -14,4 +14,10 @@ contextBridge.exposeInMainWorld('nexoUpdate', {
 
 contextBridge.exposeInMainWorld('nexoRuntime', {
   startOllama: () => ipcRenderer.invoke('ollama:start'),
+  installOllama: () => ipcRenderer.invoke('ollama:install'),
+  onInstallStatus: (callback) => {
+    const listener = (_event, status) => callback(status);
+    ipcRenderer.on('ollama:install-status', listener);
+    return () => ipcRenderer.removeListener('ollama:install-status', listener);
+  },
 });

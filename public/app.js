@@ -579,6 +579,7 @@ async function refreshStatus() {
     $('#runtimeSetup').classList.toggle('hidden', statusSnapshot.connected);
     $('#downloadModel').disabled = !statusSnapshot.connected || !canManage;
     const hardware = statusSnapshot.hardware || {};
+    $('#installOllama').classList.toggle('hidden', hardware.platform !== 'win32' || !window.nexoRuntime?.installOllama);
     $('#hostSpecs').textContent = `${statusSnapshot.computer || 'Equipo anfitrión'} · ${hardware.memoryGB || '?'} GB RAM · ${hardware.platform || 'sistema local'}`;
     if (!$('#catalogSelect').dataset.initialized) {
       $('#catalogSelect').value = Number(hardware.memoryGB) >= 24 ? 'qwen3.5:9b' : 'qwen3.5:4b';
@@ -825,6 +826,10 @@ async function prepareLocalModel() {
 async function initializeApp() {
   $('#shortcutHint').textContent = navigator.platform.toLowerCase().includes('mac') ? '⌘ K' : 'Ctrl K';
   await initializeUpdateUI();
+  window.nexoRuntime?.onInstallStatus((status) => {
+    if (status?.message) $('#ollamaSetupStatus').textContent = status.message;
+    $('#installOllama').disabled = ['installing', 'starting'].includes(status?.state);
+  });
   await refreshStatus();
   await syncWorkspaceFromServer();
   render();
@@ -886,6 +891,20 @@ $('#startOllama').addEventListener('click', async () => {
     status.textContent = 'Ollama conectado. Preparando el modelo para Bit by Orbit…';
     await prepareLocalModel();
   } catch (error) { status.textContent = error.message || 'No pude iniciar Ollama. Ábrelo desde el menú Inicio e inténtalo de nuevo.'; }
+  finally { button.disabled = false; }
+});
+$('#installOllama').addEventListener('click', async () => {
+  const button = $('#installOllama'); const status = $('#ollamaSetupStatus');
+  button.disabled = true;
+  status.textContent = 'Preparando la instalación de Ollama…';
+  try {
+    const result = await window.nexoRuntime?.installOllama();
+    if (!result?.ok) { status.textContent = result?.message || 'No pude iniciar la instalación de Ollama.'; return; }
+    if (!result.connected) { status.textContent = result.message; return; }
+    await refreshStatus();
+    status.textContent = result.message;
+    await prepareLocalModel();
+  } catch (error) { status.textContent = error.message || 'No pude instalar Ollama.'; }
   finally { button.disabled = false; }
 });
 $('#refreshModels').addEventListener('click', async () => {
