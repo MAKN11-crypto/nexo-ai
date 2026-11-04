@@ -12,6 +12,8 @@ let selectedAgent = 'coordinator';
 let statusSnapshot = { connected: false, models: [], settings: { endpoint: 'http://127.0.0.1:11434', model: '' } };
 let workspaceSyncReady = false;
 let workspaceSyncTimer;
+let workspacePollTimer;
+let workspacePollBusy = false;
 let activeGeneration;
 let activeModelPull;
 let pendingDocuments = [];
@@ -103,21 +105,23 @@ async function syncWorkspaceToServer() {
     if (response.ok) mergeRemoteWorkspace(await response.json());
   } catch {}
 }
-async function syncWorkspaceFromServer() {
+async function pollWorkspaceFromServer() {
+  if (workspacePollBusy || document.visibilityState !== 'visible') return;
+  workspacePollBusy = true;
   try {
-    const response = await fetch('/api/workspace');
+    const response = await fetch('/api/workspace', { headers: lastWorkspaceRevision ? { 'If-None-Match': `"workspace-${lastWorkspaceRevision}"` } : {} });
+    if (response.status === 304) return;
     if (!response.ok) return;
     mergeRemoteWorkspace(await response.json());
-    workspaceSyncReady = true;
-    await syncWorkspaceToServer();
-    window.setInterval(async () => {
-      if (document.visibilityState !== 'visible') return;
-      try {
-        const latest = await fetch('/api/workspace', { headers: lastWorkspaceRevision ? { 'If-None-Match': `"workspace-${lastWorkspaceRevision}"` } : {} });
-        if (latest.ok) mergeRemoteWorkspace(await latest.json());
-      } catch {}
-    }, 5000);
-  } catch { workspaceSyncReady = true; }
+    if (!workspaceSyncReady) {
+      workspaceSyncReady = true;
+      await syncWorkspaceToServer();
+    }
+  } catch {} finally { workspacePollBusy = false; }
+}
+async function syncWorkspaceFromServer() {
+  if (!workspacePollTimer) workspacePollTimer = window.setInterval(pollWorkspaceFromServer, 5000);
+  await pollWorkspaceFromServer();
 }
 function currentThread() { return store.threads.find((thread) => thread.id === store.activeId); }
 function agentFor(id) { return store.agents.find((agent) => agent.id === id) || defaultAgents[0]; }
