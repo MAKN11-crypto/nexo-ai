@@ -6,6 +6,7 @@ Bit by Orbit es una app de IA personal, local y multiagente. La interfaz está e
 
 - Asistente principal y agentes especializados de investigación, desarrollo, estrategia y creatividad.
 - Chats independientes por agente; permite crear agentes personalizados.
+- Vista de tareas del equipo con historial, estado, aportes de cada especialista, filtros y acceso directo a la conversación; si se interrumpe una respuesta por reiniciar la app, conserva los pasos y permite reintentar.
 - Búsqueda en tiempo real por título y contenido de todas las conversaciones guardadas.
 - Borradores de habilidades reutilizables: combina el modelo local con fragmentos de búsqueda web, guarda fuentes y exige revisar/activar la habilidad antes de aplicarla a chats relacionados. El propietario es el único que puede aprender, activar o borrar habilidades; el código de propietario se muestra en el anfitrión y permite desbloquear los dispositivos propios. El progreso se sincroniza y se incluye en los respaldos. No modifica los pesos del modelo.
 - Espacio **Our AI** con estado del modelo local, recuerdos, habilidades, ejemplos valorados y conversaciones; conserva un historial privado de solicitudes de aprendizaje, borradores, activaciones y errores.

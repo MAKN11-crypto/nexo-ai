@@ -133,8 +133,8 @@ function currentThread() { return store.threads.find((thread) => thread.id === s
 function agentFor(id) { return store.agents.find((agent) => agent.id === id) || defaultAgents[0]; }
 function safe(text) { return String(text).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
 function agentAvatarUrl(agent) {
-  const valid = ['/icon.png', '/agents/researcher.png', '/agents/builder.png', '/agents/strategist.png', '/agents/creative.png'];
-  return valid.includes(agent?.avatar) ? agent.avatar : agent?.id === 'coordinator' ? '/icon.png' : '/agents/creative.png';
+  const valid = ['/icon.png', '/agents/researcher.svg', '/agents/builder.svg', '/agents/strategist.svg', '/agents/creative.svg'];
+  return valid.includes(agent?.avatar) ? agent.avatar : agent?.id === 'coordinator' ? '/icon.png' : '/agents/creative.svg';
 }
 function agentAvatarMarkup(agent, className = '') { return `<img class="agent-portrait ${safe(className)}" src="${agentAvatarUrl(agent)}" alt="" loading="lazy">`; }
 function markdown(text) {
@@ -300,6 +300,77 @@ function createThread(agentId = selectedAgent) {
   store.threads.unshift(thread); store.activeId = thread.id; selectedAgent = agentId; persist(); render(); setView('chats'); $('#prompt').focus();
 }
 function openThread(id) { store.activeId = id; const thread = currentThread(); if (thread) { selectedAgent = thread.agent; store.provider = thread.provider || 'ollama'; } persist(); render(); setView('chats'); }
+function getTeamTasks() {
+  const tasks = [];
+  for (const thread of store.threads) {
+    const messages = thread.messages || [];
+    for (let index = 0; index < messages.length; index += 1) {
+      const userMessage = messages[index];
+      const assistantMessage = messages[index + 1];
+      if (userMessage?.role !== 'user' || assistantMessage?.role !== 'assistant' || assistantMessage.team !== true) continue;
+      const content = String(assistantMessage.content || '');
+      const state = assistantMessage.pending ? 'active' : content.startsWith('No pude completar la respuesta.') || content.includes('Respuesta detenida.') ? 'attention' : 'done';
+      tasks.push({ threadId: thread.id, threadTitle: thread.title, messageIndex: index + 1, prompt: userMessage.content || 'Tarea del equipo', answer: content, state, status: assistantMessage.status || '', steps: assistantMessage.steps || [], createdAt: Number(assistantMessage.createdAt || userMessage.createdAt || thread.updated) || Date.now(), updatedAt: Number(assistantMessage.updatedAt || thread.updated) || Date.now() });
+    }
+  }
+  return tasks.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+function renderTaskHub() {
+  const list = $('#taskList');
+  if (!list) return;
+  const tasks = getTeamTasks();
+  const filter = $('#taskStatusFilter')?.value || 'all';
+  const filtered = filter === 'all' ? tasks : tasks.filter((task) => task.state === filter);
+  const active = tasks.filter((task) => task.state === 'active').length;
+  const done = tasks.filter((task) => task.state === 'done').length;
+  $('#taskCount').textContent = String(tasks.length);
+  $('#taskSummary').textContent = tasks.length ? `${tasks.length} ${tasks.length === 1 ? 'tarea' : 'tareas'} · ${active} en curso · ${done} completadas` : 'Todavía no hay tareas del equipo';
+  $('#tasksEmpty').classList.toggle('hidden', tasks.length > 0);
+  list.replaceChildren();
+  if (tasks.length && !filtered.length) {
+    const empty = document.createElement('p'); empty.className = 'task-filter-empty'; empty.textContent = 'No hay tareas en este estado.'; list.append(empty); return;
+  }
+  for (const task of filtered) {
+    const card = document.createElement('article'); card.className = `task-card task-${task.state}`;
+    const top = document.createElement('div'); top.className = 'task-card-top';
+    const label = document.createElement('span'); label.className = `task-state task-state-${task.state}`; label.textContent = task.state === 'active' ? 'En curso' : task.state === 'attention' ? 'Revisar' : 'Completada';
+    const date = document.createElement('time'); date.dateTime = new Date(task.createdAt).toISOString(); date.textContent = new Date(task.createdAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+    top.append(label, date);
+    const title = document.createElement('h2'); title.textContent = task.prompt;
+    const progress = document.createElement('div'); progress.className = 'task-progress-row';
+    const doneSteps = Math.min(task.steps.length, 4); const percent = task.state === 'done' ? 100 : Math.round(doneSteps / 4 * 100);
+    const track = document.createElement('span'); track.className = 'task-progress-track'; const fill = document.createElement('i'); fill.style.width = `${percent}%`; track.append(fill);
+    const progressText = document.createElement('small'); progressText.textContent = task.state === 'active' ? `${doneSteps} de 4 agentes · ${task.status || 'Trabajando…'}` : task.state === 'attention' ? `${doneSteps} aportes guardados · puedes reintentar` : `${doneSteps || 4} perspectivas reunidas`;
+    progress.append(track, progressText);
+    const contributors = document.createElement('div'); contributors.className = 'task-contributors';
+    for (const step of task.steps.slice(0, 4)) {
+      const agent = store.agents.find((item) => item.name === step.agent) || store.agents[0];
+      const avatar = document.createElement('span'); avatar.title = step.agent || 'Agente'; avatar.innerHTML = agentAvatarMarkup(agent); contributors.append(avatar);
+    }
+    if (!task.steps.length && task.state === 'active') { const waiting = document.createElement('small'); waiting.textContent = 'Esperando el primer aporte'; contributors.append(waiting); }
+    const footer = document.createElement('div'); footer.className = 'task-card-footer';
+    const chat = document.createElement('button'); chat.type = 'button'; chat.className = 'text-button'; chat.textContent = task.threadTitle ? `Abrir ${task.threadTitle}` : 'Abrir conversación';
+    chat.addEventListener('click', () => openThread(task.threadId)); footer.append(chat);
+    if (task.state === 'attention') { const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'secondary-button'; retry.textContent = 'Reintentar'; retry.addEventListener('click', () => { openThread(task.threadId); requestAnimationFrame(() => document.querySelector(`[data-regenerate-message="${task.messageIndex}"]`)?.click()); }); footer.append(retry); }
+    card.append(top, title, progress, contributors, footer); list.append(card);
+  }
+}
+function recoverInterruptedGenerations() {
+  const serverStartedAt = Number(statusSnapshot.serverStartedAt) || 0;
+  if (!serverStartedAt) return;
+  let changed = false;
+  for (const thread of store.threads) for (const message of thread.messages || []) {
+    if (message.role !== 'assistant' || !message.pending || Number(message.updatedAt || message.createdAt || 0) >= serverStartedAt) continue;
+    const partial = String(message.content || '').trim();
+    message.content = `No pude completar la respuesta. El equipo se reinició antes de terminar; el avance guardado sigue en esta conversación y puedes reintentar desde Tareas.${partial ? `\n\nÚltimo avance:\n${partial}` : ''}`;
+    message.status = 'Interrumpida · puedes reintentar esta tarea.';
+    message.pending = false;
+    message.updatedAt = Date.now();
+    thread.updated = message.updatedAt;
+    changed = true;
+  }
+  if (changed) persist();
+}
 function renderList() {
   const list = $('#conversationList');
   list.replaceChildren();
@@ -719,7 +790,7 @@ async function refreshProviders() {
   renderProviderCards(); syncProviderRoute();
 }
 function render() {
-  renderList(); renderMessages(); renderAgents(); renderSkills();
+  renderList(); renderMessages(); renderAgents(); renderSkills(); renderTaskHub();
   renderMemoryPanel();
   updateFeedbackCount();
   const thread = currentThread();
@@ -729,17 +800,18 @@ function render() {
   renderOurAi(); renderProviderCards(); syncProviderRoute();
 }
 function setView(view) {
-  currentView = ['chats', 'agents', 'our-ai', 'providers'].includes(view) ? view : 'chats';
-  const views = { chats: '#chatView', agents: '#agentsView', 'our-ai': '#ourAiView', providers: '#providersView' };
+  currentView = ['chats', 'tasks', 'agents', 'our-ai', 'providers'].includes(view) ? view : 'chats';
+  const views = { chats: '#chatView', tasks: '#tasksView', agents: '#agentsView', 'our-ai': '#ourAiView', providers: '#providersView' };
   for (const [key, selector] of Object.entries(views)) $(selector).classList.toggle('hidden', currentView !== key);
-  const titles = { chats: 'Chats', agents: 'Agentes', 'our-ai': 'Our AI', providers: 'Modelos externos' };
+  const titles = { chats: 'Chats', tasks: 'Tareas', agents: 'Agentes', 'our-ai': 'Our AI', providers: 'Modelos externos' };
   $('#viewName').textContent = titles[currentView];
   document.querySelectorAll('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.view === view));
   if (currentView === 'chats') $('#threadName').textContent = currentThread()?.title || 'Nuevo chat';
+  else if (currentView === 'tasks') $('#threadName').textContent = `${getTeamTasks().length} tareas del equipo`;
   else if (currentView === 'agents') $('#threadName').textContent = `${store.agents.length} agentes`;
   else if (currentView === 'our-ai') $('#threadName').textContent = 'Aprendizaje y memoria';
   else $('#threadName').textContent = 'Conexiones opcionales';
-  renderMessages(); renderOurAi();
+  renderMessages(); renderOurAi(); renderTaskHub();
   if (currentView === 'providers') refreshProviderModels();
 }
 function setConnection(connected, label, model = '') {
@@ -846,9 +918,10 @@ async function sendMessage(text = $('#prompt').value) {
   const documents = pendingDocuments.splice(0);
   const context = documents.filter((document) => document.type !== 'image').map((document) => `--- ${document.name} ---\n${document.text}`).join('\n\n');
   const images = documents.filter((document) => document.type === 'image').map(({ name, mime, data }) => ({ name, mime, data }));
-  thread.messages.push({ role: 'user', content: prompt, attachments: documents.map(({ name, type }) => ({ name, type })), context, images }); thread.pending = true; thread.team = $('#teamMode').checked;
+  const startedAt = Date.now();
+  thread.messages.push({ role: 'user', content: prompt, createdAt: startedAt, attachments: documents.map(({ name, type }) => ({ name, type })), context, images }); thread.pending = true; thread.team = $('#teamMode').checked;
   const provider = thread.provider || store.provider || 'ollama';
-  const assistantMessage = { role: 'assistant', agent: selectedAgent, content: '', steps: [], sources: [], team: thread.team, pending: true, status: thread.team ? 'Reuniendo al equipo…' : provider === 'ollama' ? 'Pensando en tu equipo…' : `Consultando ${provider === 'gemini' ? 'Gemini' : provider === 'openai' ? 'OpenAI API' : 'Claude'}…` };
+  const assistantMessage = { role: 'assistant', agent: selectedAgent, content: '', createdAt: startedAt, updatedAt: startedAt, steps: [], sources: [], team: thread.team, pending: true, status: thread.team ? 'Reuniendo al equipo…' : provider === 'ollama' ? 'Pensando en tu equipo…' : `Consultando ${provider === 'gemini' ? 'Gemini' : provider === 'openai' ? 'OpenAI API' : 'Claude'}…` };
   thread.messages.push(assistantMessage);
   $('#prompt').value = ''; autoResize(); renderFileTray(); persist(); render(); $('#sendButton').disabled = true; $('#stopButton').classList.remove('hidden');
   activeGeneration = new AbortController();
@@ -892,6 +965,7 @@ async function sendMessage(text = $('#prompt').value) {
         if (event.type === 'sources') assistantMessage.sources = event.sources || [];
         if (event.type === 'done') { assistantMessage.content = event.content; assistantMessage.steps = event.steps || assistantMessage.steps; assistantMessage.sources = event.sources || assistantMessage.sources; assistantMessage.contextNotice = event.contextNotice || ''; assistantMessage.provenance = event.provenance || null; assistantMessage.pending = false; }
         if (event.type === 'error') throw new Error(event.message || 'No se pudo responder.');
+        assistantMessage.updatedAt = Date.now(); thread.updated = assistantMessage.updatedAt;
         persist(); renderMessages();
       }
       if (done) break;
@@ -907,7 +981,7 @@ async function sendMessage(text = $('#prompt').value) {
       ? `${assistantMessage.content ? `${assistantMessage.content}\n\n` : ''}Respuesta detenida.`
       : `${assistantMessage.content ? `${assistantMessage.content}\n\n` : ''}No pude completar la respuesta. ${error.message}\n\n${provider === 'ollama' ? 'Abre Ajustes para conectar el motor local y elegir un modelo.' : 'Revisa la conexión en Modelos externos.'}`;
   } finally {
-    assistantMessage.pending = false; thread.pending = false; thread.updated = Date.now(); activeGeneration = null; activeProviderRequest = null; persist(); render(); $('#sendButton').disabled = false; $('#stopButton').classList.add('hidden'); $('#prompt').focus();
+    assistantMessage.pending = false; assistantMessage.updatedAt = Date.now(); thread.pending = false; thread.updated = assistantMessage.updatedAt; activeGeneration = null; activeProviderRequest = null; persist(); render(); $('#sendButton').disabled = false; $('#stopButton').classList.add('hidden'); $('#prompt').focus();
     if (voiceModeEnabled) {
       if (assistantMessage.content && !assistantMessage.content.startsWith('No pude completar la respuesta.')) speakVoiceResponse(assistantMessage.content);
       else setTimeout(startVoiceRecognition, 500);
@@ -1043,6 +1117,7 @@ async function initializeApp() {
   await refreshStatus();
   await refreshProviders();
   await syncWorkspaceFromServer();
+  recoverInterruptedGenerations();
   render();
   startAutomaticLearning();
   if (!statusSnapshot.connected) {
@@ -1343,6 +1418,9 @@ $('#downloadModel').addEventListener('click', async () => {
 });
 $('#cancelModelPull').addEventListener('click', () => activeModelPull?.abort());
 $('#clearChats').addEventListener('click', async () => { if (confirm('¿Borrar todas las conversaciones sincronizadas en este equipo?')) { store.threads = []; store.activeId = null; persist(); render(); try { await fetch('/api/workspace/clear', { method: 'POST' }); } catch {} } });
+$('#taskStatusFilter').addEventListener('change', renderTaskHub);
+$('#newTeamTask').addEventListener('click', () => { store.provider = 'ollama'; createThread('coordinator'); $('#teamMode').checked = true; syncProviderRoute(); $('#prompt').focus(); });
+$('#tasksEmptyStart').addEventListener('click', () => { store.provider = 'ollama'; createThread('coordinator'); $('#teamMode').checked = true; syncProviderRoute(); $('#prompt').focus(); });
 $('#clearLearningHistory').addEventListener('click', () => { if (!statusSnapshot.owner || !confirm('¿Borrar el historial de aprendizaje? Las habilidades y recuerdos guardados no se borrarán.')) return; store.learningEvents = []; persist(); renderLearningHistory(); });
 $('#chatSearch').addEventListener('input', renderList);
 $('#createAgent').addEventListener('click', () => { $('#agentNameInput').value = ''; $('#agentPromptInput').value = ''; $('#agentDialog').showModal(); });

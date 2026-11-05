@@ -20,6 +20,7 @@
       <button class="new-chat" id="newChat"><span class="plus">＋</span><span>Nuevo chat</span><kbd id="shortcutHint">Ctrl K</kbd></button>
       <div class="sidebar-label">TU ESPACIO</div>
       <button class="nav-item active" data-view="chats"><span class="nav-icon">◌</span>Chats <span class="nav-count" id="chatCount">0</span></button>
+      <button class="nav-item" data-view="tasks"><span class="nav-icon">▤</span>Tareas <span class="nav-count" id="taskCount">0</span></button>
       <button class="nav-item" data-view="our-ai"><span class="nav-icon">✳</span>Our AI <span class="nav-count nav-status-dot" id="ourAiNavState">●</span></button>
       <button class="nav-item" data-view="providers"><span class="nav-icon">◉</span>Modelos externos</button>
       <button class="nav-item" data-view="agents"><span class="nav-icon">✳</span>Agentes</button>
@@ -56,6 +57,7 @@
         </div>
       </section>
       <section class="agents-view hidden" id="agentsView"><div class="agents-heading"><div><div class="eyebrow"><span class="spark">✳</span> TU EQUIPO</div><h1>Agentes que<br><em>piensan contigo.</em></h1><p>Cada agente tiene una especialidad y su propio historial de chat.</p></div><button class="create-agent" id="createAgent">＋ Crear agente</button></div><div class="agent-grid" id="agentGrid"></div><div class="agents-footnote"><span>✳</span> El coordinador puede consultar al equipo entero y reunir sus perspectivas.</div></section>
+      <section class="tasks-view hidden" id="tasksView"><div class="page-heading"><div><div class="eyebrow">BIT BY ORBIT · ACTIVIDAD DEL EQUIPO</div><h1>Tareas</h1><p>Consulta el progreso y vuelve a tus conversaciones del equipo.</p></div><button class="primary-button" id="newTeamTask">＋ Nueva tarea</button></div><div class="task-hub-note"><span>i</span><p>Las tareas del equipo se guardan en el historial de chat. En esta versión, los agentes trabajan en secuencia mientras la app está abierta; si una respuesta se interrumpe, puedes reintentarla desde la conversación.</p></div><div class="task-filter-row"><span id="taskSummary">Todavía no hay tareas del equipo</span><select id="taskStatusFilter" class="field" aria-label="Filtrar tareas"><option value="all">Todas</option><option value="active">En curso</option><option value="done">Completadas</option><option value="attention">Interrumpidas o con error</option></select></div><div id="taskList" class="task-list"></div><div id="tasksEmpty" class="tasks-empty hidden"><span class="tasks-empty-icon">▤</span><strong>Tu actividad aparecerá aquí</strong><p>Inicia un chat con Bit, activa “Consultar al equipo” y envía una tarea.</p><button class="secondary-button" id="tasksEmptyStart">Empezar un chat</button></div></section>
       <section class="our-ai-view hidden" id="ourAiView">
         <div class="page-heading"><div><div class="eyebrow">BIT BY ORBIT · IA PROPIA</div><h1>Our AI</h1><p>Tu modelo local, sus recuerdos y las habilidades que tú decides enseñarle.</p></div><button class="secondary-button" id="ourAiSettings">Ajustes del modelo</button></div>
         <div class="our-ai-hero">

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = process.env.NEXO_DATA_DIR || path.join(here, '.data');
+const serverStartedAt = Date.now();
 const settingsFile = path.join(dataDir, 'settings.json');
 const workspaceFile = path.join(dataDir, 'workspace.json');
 const ownerProfileFile = path.join(dataDir, 'owner-profile.json');
@@ -156,6 +157,8 @@ function sanitizeWorkspace(input) {
     messages: Array.isArray(thread.messages) ? thread.messages.slice(-300).map((message) => ({
       role: message.role === 'assistant' ? 'assistant' : 'user', agent: String(message.agent || '').slice(0, 80),
       team: message.team === true,
+      pending: message.pending === true, status: String(message.status || '').slice(0, 200),
+      createdAt: Math.min(Number(message.createdAt) || Date.now(), Date.now()), updatedAt: Math.min(Number(message.updatedAt) || Date.now(), Date.now()),
       content: String(message.content || '').slice(0, 30_000),
       rating: ['useful', 'improve'].includes(message.rating) ? message.rating : '', ratedAt: String(message.ratedAt || '').slice(0, 40),
       contextNotice: String(message.contextNotice || '').slice(0, 600),
@@ -360,7 +363,7 @@ async function status(req) {
   const token = await getAccessToken();
   const addresses = localAddresses();
   const hostMemoryGB = Math.round(os.totalmem() / (1024 ** 3));
-  return { connected: primary.connected, models: primary.models, nodes, settings: owner ? settings : { model: settings.model || '', nodes: [] }, inference: { provider: 'ollama', model: settings.model || null, locality: 'local' }, owner, ownerPairCode: isLoopback(req) ? await getOwnerCode() : '', computer: os.hostname(), hardware: { platform: process.platform, architecture: process.arch, memoryGB: hostMemoryGB, cpu: os.cpus()[0]?.model || 'Procesador no identificado' }, agents, modelCatalog, access: { enabled: host !== '127.0.0.1' && host !== 'localhost', addresses: owner ? addresses : [], links: owner ? addresses.map((address) => `http://${address}:${port}/?key=${token}`) : [] } };
+  return { connected: primary.connected, models: primary.models, nodes, settings: owner ? settings : { model: settings.model || '', nodes: [] }, inference: { provider: 'ollama', model: settings.model || null, locality: 'local' }, owner, serverStartedAt, ownerPairCode: isLoopback(req) ? await getOwnerCode() : '', computer: os.hostname(), hardware: { platform: process.platform, architecture: process.arch, memoryGB: hostMemoryGB, cpu: os.cpus()[0]?.model || 'Procesador no identificado' }, agents, modelCatalog, access: { enabled: host !== '127.0.0.1' && host !== 'localhost', addresses: owner ? addresses : [], links: owner ? addresses.map((address) => `http://${address}:${port}/?key=${token}`) : [] } };
 }
 
 function streamResponse(res) {
