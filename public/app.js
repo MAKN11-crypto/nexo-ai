@@ -1473,23 +1473,64 @@ $('#downloadModel').addEventListener('click', async () => {
 $('#cancelModelPull').addEventListener('click', () => activeModelPull?.abort());
 $('#clearChats').addEventListener('click', async () => { if (confirm('¿Borrar todas las conversaciones sincronizadas en este equipo?')) { store.threads = []; store.activeId = null; persist(); render(); try { await fetch('/api/workspace/clear', { method: 'POST' }); } catch {} } });
 let deferredInstallPrompt = null;
+function refreshPwaInstallHelp() {
+  const card = $('#pwaInstallCard');
+  const help = $('#pwaInstallHelp');
+  const button = $('#installPwaButton');
+  if (!card || !help || !button) return;
+  const installed = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+  const localOrigin = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+  const secureOrigin = window.isSecureContext || localOrigin;
+  const isMac = /Macintosh|Mac OS X/.test(navigator.userAgent);
+  const isSafari = isMac && /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|Edg/.test(navigator.userAgent);
+  const browserName = /Edg\\//.test(navigator.userAgent) ? 'Edge' : /Chrome|Chromium|CriOS/.test(navigator.userAgent) ? 'Chrome' : '';
+
+  if (window.nexoRuntime) {
+    help.textContent = 'Estás usando la app de escritorio; no necesitas instalar otra copia en este equipo. Para la Mac, abre el enlace privado en el navegador. La instalación PWA desde ese enlace requiere HTTPS, que aún no está configurado.';
+    button.classList.add('hidden');
+    return;
+  }
+  if (installed) {
+    help.textContent = 'Bit by Orbit está instalada como web app. La MSI debe permanecer encendida para responder; el navegador descarga los cambios web al volver a conectarse.';
+    button.classList.add('hidden');
+    return;
+  }
+  if (!secureOrigin) {
+    help.textContent = 'Este enlace usa HTTP en la red local. Puedes usar Bit by Orbit en esta pestaña, pero el navegador no permite instalarla como PWA desde aquí. Para instalarla en la Mac hace falta servir el mismo equipo anfitrión por HTTPS; esa conexión segura aún no está configurada. No compartas el enlace fuera de una red de confianza.';
+    button.classList.add('hidden');
+    return;
+  }
+  if (deferredInstallPrompt) {
+    help.textContent = 'Este navegador permite instalar Bit by Orbit como web app. La MSI seguirá alojando los chats y el modelo local.';
+    button.classList.remove('hidden');
+    return;
+  }
+  button.classList.add('hidden');
+  if (isSafari) {
+    help.textContent = 'En Safari para Mac, usa Archivo → Añadir al Dock para instalar esta web app. Necesitas una dirección HTTPS o abrirla en localhost.';
+  } else if (browserName) {
+    help.textContent = `En ${browserName}, busca “Instalar Bit by Orbit” en el menú del navegador. La instalación solo está disponible con HTTPS o localhost.`;
+  } else {
+    help.textContent = 'Este navegador puede abrir Bit by Orbit, pero no ofrece un botón de instalación web compatible. Prueba Chrome, Edge o Safari en una dirección HTTPS.';
+  }
+}
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   deferredInstallPrompt = event;
-  $('#installPwaButton')?.classList.remove('hidden');
+  refreshPwaInstallHelp();
 });
 $('#installPwaButton')?.addEventListener('click', async () => {
   if (!deferredInstallPrompt) return;
   deferredInstallPrompt.prompt();
   await deferredInstallPrompt.userChoice;
   deferredInstallPrompt = null;
-  $('#installPwaButton').classList.add('hidden');
+  refreshPwaInstallHelp();
 });
 window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
-  $('#installPwaButton')?.classList.add('hidden');
-  $('#pwaInstallHelp').textContent = 'Bit by Orbit quedó instalada desde el navegador. Las versiones web se actualizan al visitar la página.';
+  refreshPwaInstallHelp();
 });
+refreshPwaInstallHelp();
 $('#taskStatusFilter').addEventListener('change', renderTaskHub);
 $('#newTeamTask').addEventListener('click', () => { store.provider = 'ollama'; createThread('coordinator'); $('#teamMode').checked = true; syncProviderRoute(); $('#prompt').focus(); });
 $('#tasksEmptyStart').addEventListener('click', () => { store.provider = 'ollama'; createThread('coordinator'); $('#teamMode').checked = true; syncProviderRoute(); $('#prompt').focus(); });
