@@ -189,8 +189,8 @@ ipcMain.handle('updates:install', async () => {
 ipcMain.handle('ollama:start', () => startExistingOllama());
 ipcMain.handle('ollama:install', () => installOllamaWithWinget());
 
-app.setName('Bit by Orbit');
-app.setPath('userData', path.join(app.getPath('appData'), 'Nexo'));
+// Mantiene la carpeta de datos existente; productName controla el nombre visible del paquete.
+app.setName('Nexo');
 
 app.whenReady().then(async () => {
   port = await findAvailablePort();
