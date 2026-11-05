@@ -5,7 +5,9 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { autoUpdater } from 'electron-updater';
+import updaterPackage from 'electron-updater';
+
+const { autoUpdater } = updaterPackage;
 
 let port;
 let window;
