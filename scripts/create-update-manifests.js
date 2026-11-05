@@ -15,13 +15,14 @@ async function describe(filename) {
 
 async function writeManifest(filename, artifact) {
   const info = await describe(artifact);
+  const publishedArtifact = artifact.replaceAll(' ', '.');
   const data = [
     `version: ${JSON.stringify(process.env.npm_package_version || '0.1.0')}`,
     'files:',
-    `  - url: ${JSON.stringify(info.url)}`,
+    `  - url: ${JSON.stringify(publishedArtifact)}`,
     `    sha512: ${info.sha512}`,
     `    size: ${info.size}`,
-    `path: ${JSON.stringify(info.url)}`,
+    `path: ${JSON.stringify(publishedArtifact)}`,
     `sha512: ${info.sha512}`,
     `releaseDate: ${new Date().toISOString()}`,
     '',
