@@ -432,14 +432,14 @@ function exportFeedback() {
   if (!examples.length) return;
   const blob = new Blob([examples.map((example) => JSON.stringify(example)).join('\n')], { type: 'application/x-ndjson' });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a'); link.href = url; link.download = `nexo-ejemplos-${new Date().toISOString().slice(0, 10)}.jsonl`; link.click();
+  const link = document.createElement('a'); link.href = url; link.download = `bit-by-orbit-ejemplos-${new Date().toISOString().slice(0, 10)}.jsonl`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function exportWorkspaceBackup() {
   const backup = { format: 'nexo-workspace', version: 1, exportedAt: new Date().toISOString(), threads: store.threads, agents: store.agents.filter((agent) => agent.custom), skills: store.skills, memory: store.memory, learnEnabled: store.learnEnabled };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement('a'); link.href = url; link.download = `nexo-respaldo-${new Date().toISOString().slice(0, 10)}.json`; link.click();
+  const link = document.createElement('a'); link.href = url; link.download = `bit-by-orbit-respaldo-${new Date().toISOString().slice(0, 10)}.json`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 async function importWorkspaceBackup(file) {

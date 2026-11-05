@@ -30,8 +30,8 @@ async function writeManifest(filename, artifact) {
   console.log(`Update manifest created: ${filename} → ${artifact}`);
 }
 
-const windowsInstaller = files.find((name) => /^Nexo Setup .*\.exe$/i.test(name));
-const macArchive = files.find((name) => /^Nexo-.*-mac.*\.zip$/i.test(name));
+const windowsInstaller = files.find((name) => /^Bit by Orbit Setup .*\.exe$/i.test(name));
+const macArchive = files.find((name) => /^Bit by Orbit-.*-mac\.zip$/i.test(name));
 const linuxPackage = files.find((name) => /\.AppImage$/i.test(name));
 
 if (windowsInstaller) await writeManifest('latest.yml', windowsInstaller);

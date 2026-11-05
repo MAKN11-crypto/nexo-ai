@@ -1,6 +1,6 @@
-# Nexo
+# Bit by Orbit
 
-Nexo es el prototipo de una app de IA personal, local y multiagente. La interfaz está en español y se adapta a escritorio y móvil. Los chats se ejecutan con un modelo abierto alojado en un motor local compatible con Ollama.
+Bit by Orbit es el prototipo de una app de IA personal, local y multiagente. La interfaz está en español y se adapta a escritorio y móvil. Los chats se ejecutan con un modelo abierto alojado en un motor local compatible con Ollama.
 
 ## Lo que ya hace
 
@@ -15,7 +15,7 @@ Nexo es el prototipo de una app de IA personal, local y multiagente. La interfaz
 - Modo equipo: cuatro especialistas preparan perspectivas y el coordinador las sintetiza.
 - Modo equipo distribuido: reparte especialistas entre el nodo principal y los Ollama configurados en otros equipos; comprueba disponibilidad/modelos y muestra dónde trabajó cada agente.
 - Respuesta progresiva por streaming y botón para detener generación.
-- Conversación por voz en la app: dictado sin conexión cuando el navegador lo admite y respuesta hablada con una voz española instalada localmente. Nexo no graba ni sube el audio; si falta soporte local, muestra cómo usar el dictado del sistema.
+- Conversación por voz en la app: dictado sin conexión cuando el navegador lo admite y respuesta hablada con una voz española instalada localmente. Bit by Orbit no graba ni sube el audio; si falta soporte local, muestra cómo usar el dictado del sistema.
 - Procedencia visible por respuesta: identifica el proveedor, el modelo y si el procesamiento fue local; las respuestas externas quedan fuera de la exportación de ejemplos de entrenamiento.
 - Protección del anfitrión: una sola generación usa el modelo local a la vez para reducir picos de RAM; hasta tres solicitudes adicionales esperan su turno en vez de fallar. Las solicitudes que excedan la cola se pueden volver a intentar después. Los invitados no pueden descargar modelos ni ver/enviar el enlace de invitación desde el estado de la app.
 - Descarga de modelos compatibles desde la biblioteca de la app, con progreso.
@@ -30,7 +30,7 @@ Nexo es el prototipo de una app de IA personal, local y multiagente. La interfaz
 - Enlace de red local protegido con clave aleatoria en cookie HTTPOnly; la clave se guarda en la carpeta privada de datos de la app.
 - Los archivos de chats, preferencias, configuración y claves se escriben con permisos privados en sistemas que los soportan.
 - Sin claves de API, proveedores de IA de pago, analítica ni fuentes de tipografía externas.
-- Cascarón de escritorio Electron para abrir Nexo como aplicación y usar una carpeta de datos del usuario. Si Ollama ya está instalado, Nexo intenta iniciarlo.
+- Cascarón de escritorio Electron para abrir Bit by Orbit como aplicación y usar una carpeta de datos del usuario. Si Ollama ya está instalado, Bit by Orbit intenta iniciarlo.
 - Si el motor está listo pero aún no hay modelo, la primera apertura descarga y selecciona automáticamente un modelo apropiado según la memoria detectada.
 
 ## Limitaciones actuales
@@ -59,11 +59,11 @@ Abre `http://localhost:4173`. Para permitir acceso desde otros dispositivos, usa
 
 Para la app de escritorio, instala las dependencias del proyecto y usa `npm run desktop`. Los scripts `package:mac`, `package:win` y `package:linux` generan paquetes con electron-builder. Windows produce instalador NSIS y ZIP portable; Mac produce DMG y ZIP para Apple Silicon.
 
-El flujo `.github/workflows/release-windows.yml` compila Windows y Mac cuando cambia la versión de `package.json` en la rama `MAKN10`; también permite publicar manualmente desde GitHub Actions. La versión se convierte en una etiqueta `vX.Y.Z` y se publica como GitHub Release. La primera versión `v0.9.0` está en Releases. El instalador incluye la dirección del repositorio al compilarse. En Windows, Nexo revisa al abrir, descarga versiones compatibles en segundo plano y permite reiniciar para aplicarlas; si se cierra con una actualización lista, se instala al salir. Los chats y preferencias viven en los datos de usuario y sobreviven a la actualización. El ZIP portable no se autoactualiza. Sin certificados de firma, Windows puede advertir que el editor es desconocido y macOS puede pedir confirmación manual al abrir la app.
+El flujo `.github/workflows/release-windows.yml` compila Windows y Mac cuando cambia la versión de `package.json` en la rama `MAKN10`; también permite publicar manualmente desde GitHub Actions. La versión se convierte en una etiqueta `vX.Y.Z` y se publica como GitHub Release. La primera versión `v0.9.0` está en Releases. El instalador incluye la dirección del repositorio al compilarse. En Windows, Bit by Orbit revisa al abrir, descarga versiones compatibles en segundo plano y permite reiniciar para aplicarlas; si se cierra con una actualización lista, se instala al salir. Los chats y preferencias viven en los datos de usuario y sobreviven a la actualización. El ZIP portable no se autoactualiza. Sin certificados de firma, Windows puede advertir que el editor es desconocido y macOS puede pedir confirmación manual al abrir la app.
 
 ## Modelo e inferencia
 
-Nexo usa la API local de Ollama. La opción sugerida para empezar es `qwen3.5:9b`: acepta texto e imágenes y el catálogo de Ollama indica un tamaño aproximado de 6.6–7.6 GB. La variante `qwen3.5:27b` ocupa alrededor de 17–20 GB y se ofrece como prueba avanzada; puede dejar poco margen de memoria en la MSI. También ofrecemos `qwen3.5:4b` y `qwen3:14b`, de solo texto. El repositorio oficial de Qwen publica Qwen 3.5 9B bajo Apache 2.0; verifica que la variante descargada conserve esa licencia y empaqueta sus avisos antes de distribuirla. Consulta el [catálogo oficial de Qwen 3.5](https://ollama.com/library/qwen3.5) y la [licencia oficial de Qwen 3.5 9B](https://huggingface.co/Qwen/Qwen3.5-9B) antes de publicar un instalador.
+Bit by Orbit usa la API local de Ollama. La opción sugerida para empezar es `qwen3.5:9b`: acepta texto e imágenes y el catálogo de Ollama indica un tamaño aproximado de 6.6–7.6 GB. La variante `qwen3.5:27b` ocupa alrededor de 17–20 GB y se ofrece como prueba avanzada; puede dejar poco margen de memoria en la MSI. También ofrecemos `qwen3.5:4b` y `qwen3:14b`, de solo texto. El repositorio oficial de Qwen publica Qwen 3.5 9B bajo Apache 2.0; verifica que la variante descargada conserve esa licencia y empaqueta sus avisos antes de distribuirla. Consulta el [catálogo oficial de Qwen 3.5](https://ollama.com/library/qwen3.5) y la [licencia oficial de Qwen 3.5 9B](https://huggingface.co/Qwen/Qwen3.5-9B) antes de publicar un instalador.
 
 La Intel Arc 140V de la MSI es integrada y comparte memoria con el sistema; no equivale a 16 GB de VRAM dedicada. La MSI con 32 GB de RAM es el primer candidato para inferencia, pero el soporte de aceleración y la velocidad deben comprobarse directamente en ese equipo. El MacBook Air M5 con 16 GB puede actuar como cliente y, más adelante, como nodo adicional. El Galaxy S24 funciona como interfaz móvil en esta etapa.
 
@@ -74,6 +74,6 @@ Los modelos se descargan desde el servicio de Ollama y ocupan disco; la app no p
 - En desarrollo: `.data/` dentro de este directorio.
 - En escritorio: carpeta de datos de usuario de Electron.
 - En navegador: `localStorage` como copia local y caché de interfaz.
-- Borrar conversaciones desde Nexo elimina las conversaciones compartidas en el anfitrión. Los agentes personalizados se sincronizan aparte.
+- Borrar conversaciones desde Bit by Orbit elimina las conversaciones compartidas en el anfitrión. Los agentes personalizados se sincronizan aparte.
 
 Los archivos adjuntos se guardan como contexto de la conversación en el espacio de trabajo local. Elige archivos que quieras compartir con el modelo y borra el chat cuando ya no necesites ese contexto. Al activar “Buscar en internet”, la consulta sale del equipo hacia DuckDuckGo; solo ocurre cuando el control está activo.

@@ -170,7 +170,7 @@ ipcMain.handle('updates:configure', async (_event, input) => {
     const url = new URL(String(input || ''));
     const parts = url.pathname.split('/').filter(Boolean);
     if (url.protocol !== 'https:' || url.hostname !== 'github.com' || parts.length < 2 || !/^[\w.-]+$/.test(parts[0]) || !/^[\w.-]+$/.test(parts[1])) {
-      return { ok: false, message: 'Usa la URL HTTPS de un repositorio público de GitHub, por ejemplo https://github.com/usuario/nexo.' };
+      return { ok: false, message: 'Usa la URL HTTPS de un repositorio público de GitHub, por ejemplo https://github.com/MAKN11-crypto/nexo-ai.' };
     }
     const config = { owner: parts[0], repo: parts[1].replace(/\.git$/, ''), repository: `https://github.com/${parts[0]}/${parts[1].replace(/\.git$/, '')}` };
     await mkdir(path.dirname(updateConfigFile), { recursive: true });
@@ -189,8 +189,10 @@ ipcMain.handle('updates:install', async () => {
 ipcMain.handle('ollama:start', () => startExistingOllama());
 ipcMain.handle('ollama:install', () => installOllamaWithWinget());
 
+app.setName('Bit by Orbit');
+app.setPath('userData', path.join(app.getPath('appData'), 'Nexo'));
+
 app.whenReady().then(async () => {
-  app.setName('Nexo');
   port = await findAvailablePort();
   process.env.PORT = String(port);
   process.env.HOST = '0.0.0.0';
