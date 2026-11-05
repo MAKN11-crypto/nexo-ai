@@ -123,6 +123,16 @@ jobs:
           RELEASE_TAG: ${{ needs.determine-release.outputs.release_tag }}
           MAC_AUTO_UPDATES: ${{ secrets.APPLE_CERTIFICATE_P12 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
 
+      - name: Verificar firma y evaluación de seguridad de macOS
+        run: |
+          APP_PATH="$(find dist -maxdepth 3 -type d -name '*.app' -print -quit)"
+          if [ -z "$APP_PATH" ]; then
+            echo "No se encontró el paquete .app para verificar."
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          spctl --assess --type execute --verbose=4 "$APP_PATH"
+
       - name: Publicar instalador y actualización para Mac
         uses: softprops/action-gh-release@v2
         with:
