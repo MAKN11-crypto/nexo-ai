@@ -15,7 +15,9 @@ async function describe(filename) {
 
 async function writeManifest(filename, artifact) {
   const info = await describe(artifact);
-  const publishedArtifact = artifact.replaceAll(' ', '.');
+  // GitHub preserves the uploaded asset's original name. Keep it intact so the
+  // manifest points at the same file that electron-builder produced.
+  const publishedArtifact = artifact;
   const data = [
     `version: ${JSON.stringify(process.env.npm_package_version || '0.1.0')}`,
     'files:',

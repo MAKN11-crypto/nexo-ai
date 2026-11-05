@@ -1223,6 +1223,31 @@ document.querySelectorAll('[data-provider-card]').forEach((card) => {
 });
 $('#openSettings').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
 $('#topSettings').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
+const settingsJumpButtons = [...document.querySelectorAll('[data-settings-target]')];
+function activateSettingsJump(button) {
+  settingsJumpButtons.forEach((item) => {
+    const active = item === button;
+    item.classList.toggle('active', active);
+    item.setAttribute('aria-pressed', String(active));
+  });
+}
+settingsJumpButtons.forEach((button) => button.addEventListener('click', () => {
+  const section = document.getElementById(button.dataset.settingsTarget);
+  if (!section) return;
+  activateSettingsJump(button);
+  section.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}));
+const settingsScrollArea = document.querySelector('.settings-dialog .dialog-body');
+if ('IntersectionObserver' in window && settingsScrollArea) {
+  const settingsSectionObserver = new IntersectionObserver((entries) => {
+    const current = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (current) activateSettingsJump(settingsJumpButtons.find((button) => button.dataset.settingsTarget === current.target.id));
+  }, { root: settingsScrollArea, rootMargin: '-16% 0px -64% 0px', threshold: [0, 0.25, 0.5, 0.75] });
+  settingsJumpButtons.forEach((button) => {
+    const section = document.getElementById(button.dataset.settingsTarget);
+    if (section) settingsSectionObserver.observe(section);
+  });
+}
 $('#startOllama').addEventListener('click', async () => {
   const button = $('#startOllama'); const status = $('#ollamaSetupStatus');
   const appLocation = statusSnapshot.hardware?.platform === 'darwin' ? 'Aplicaciones' : 'el menú Inicio';

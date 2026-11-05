@@ -18,6 +18,7 @@ let providerSecretsFile;
 const providerSecretCache = new Map();
 const providerRequests = new Map();
 let updaterStatus = { state: 'idle', message: 'Bit by Orbit buscará automáticamente versiones nuevas en su repositorio de GitHub.' };
+const macSignatureMessage = 'Esta versión de Mac necesita una firma Developer ID de Apple válida para instalar actualizaciones. No descargaré paquetes que macOS pueda rechazar como dañados.';
 
 const providerEndpoints = {
   gemini: { label: 'Gemini', models: 'https://generativelanguage.googleapis.com/v1beta/models', kind: 'gemini' },
@@ -110,6 +111,38 @@ async function generateWithProvider(input, signal) {
 
 // Mantiene la carpeta existente de datos y muestra la marca actual en el sistema.
 app.setName('Bit by Orbit');
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+else app.on('second-instance', () => {
+  if (!window) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+});
+
+function isTrustedAppFrame(frame) {
+  if (!frame || frame !== frame.top) return false;
+  try {
+    const url = new URL(frame.url);
+    return url.protocol === 'http:' && url.hostname === '127.0.0.1' && Number(url.port) === port;
+  } catch { return false; }
+}
+
+function handleAppIpc(channel, handler) {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!isTrustedAppFrame(event.senderFrame)) throw new Error('Solicitud de la app bloqueada: origen no confiable.');
+    return handler(event, ...args);
+  });
+}
+
+function blockUntrustedNavigation(event, target) {
+  try {
+    const url = new URL(target);
+    if (url.protocol === 'http:' && url.hostname === '127.0.0.1' && Number(url.port) === port) return;
+    event.preventDefault();
+    if (url.protocol === 'https:') void shell.openExternal(url.href).catch(() => {});
+  } catch { event.preventDefault(); }
+}
 
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
@@ -211,9 +244,11 @@ async function createWindow() {
     webPreferences: { preload: path.join(path.dirname(fileURLToPath(import.meta.url)), 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://')) shell.openExternal(url);
+    if (url.startsWith('https://')) void shell.openExternal(url).catch(() => {});
     return { action: 'deny' };
   });
+  window.webContents.on('will-navigate', (event, url) => blockUntrustedNavigation(event, url));
+  window.webContents.on('will-redirect', (event, url) => blockUntrustedNavigation(event, url));
   await window.loadURL(`http://127.0.0.1:${port}`);
 }
 
@@ -238,9 +273,8 @@ function useUpdateRepository(config) {
 async function checkForUpdates() {
   const config = await readUpdateConfig();
   if (process.platform === 'darwin' && config?.macAutoUpdates !== true) {
-    const message = 'Esta versión de Mac no tiene firma Developer ID de Apple. macOS no permite instalar sus actualizaciones con seguridad; no se descargará un paquete que termine como “damaged”.';
-    publishUpdateStatus('signature-required', message);
-    return { ok: false, message };
+    publishUpdateStatus('signature-required', macSignatureMessage);
+    return { ok: false, message: macSignatureMessage };
   }
   if (!config?.owner || !config?.repo) {
     publishUpdateStatus('unconfigured', 'Configura el repositorio público de GitHub donde se publicarán las versiones.');
@@ -266,8 +300,8 @@ autoUpdater.on('download-progress', (progress) => publishUpdateStatus('downloadi
 autoUpdater.on('update-downloaded', (info) => publishUpdateStatus('ready', `Versión ${info.version} lista. Reinicia Bit by Orbit ahora o se instalará al cerrar la app.`, { version: info.version }));
 autoUpdater.on('error', (error) => publishUpdateStatus('error', `No pude actualizar Bit by Orbit: ${error.message}`));
 
-ipcMain.handle('updates:get-config', async () => ({ repository: (await readUpdateConfig())?.repository || '', version: app.getVersion(), status: updaterStatus }));
-ipcMain.handle('updates:configure', async (_event, input) => {
+handleAppIpc('updates:get-config', async () => ({ repository: (await readUpdateConfig())?.repository || '', version: app.getVersion(), status: updaterStatus }));
+handleAppIpc('updates:configure', async (_event, input) => {
   try {
     const url = new URL(String(input || ''));
     const parts = url.pathname.split('/').filter(Boolean);
@@ -282,19 +316,19 @@ ipcMain.handle('updates:configure', async (_event, input) => {
     return { ok: true, repository: config.repository, status: updaterStatus };
   } catch (error) { return { ok: false, message: error.message }; }
 });
-ipcMain.handle('updates:check', () => checkForUpdates());
-ipcMain.handle('updates:install', async () => {
+handleAppIpc('updates:check', () => checkForUpdates());
+handleAppIpc('updates:install', async () => {
   if (updaterStatus.state !== 'ready') return { ok: false, message: 'La actualización todavía no está lista.' };
   autoUpdater.quitAndInstall();
   return { ok: true };
 });
-ipcMain.handle('ollama:start', () => startExistingOllama());
-ipcMain.handle('ollama:install', () => installOllamaWithWinget());
-ipcMain.handle('providers:list', async () => {
+handleAppIpc('ollama:start', () => startExistingOllama());
+handleAppIpc('ollama:install', () => installOllamaWithWinget());
+handleAppIpc('providers:list', async () => {
   const secrets = await loadProviderSecrets();
   return { secureStorage: providerStorageAvailable(), providers: Object.keys(providerEndpoints).map((id) => ({ id, name: providerEndpoints[id].label, connected: secrets.has(id) })) };
 });
-ipcMain.handle('providers:models', async (_event, providerInput) => {
+handleAppIpc('providers:models', async (_event, providerInput) => {
   const provider = String(providerInput || '');
   if (!validProvider(provider)) return { ok: false, message: 'Proveedor no reconocido.' };
   const secrets = await loadProviderSecrets(); const key = secrets.get(provider);
@@ -302,7 +336,7 @@ ipcMain.handle('providers:models', async (_event, providerInput) => {
   try { return { ok: true, models: await fetchProviderModels(provider, key) }; }
   catch (error) { return { ok: false, message: error.message || 'No se pudieron actualizar los modelos.' }; }
 });
-ipcMain.handle('providers:connect', async (_event, input) => {
+handleAppIpc('providers:connect', async (_event, input) => {
   const provider = String(input?.provider || ''); const key = String(input?.key || '').trim();
   if (!validProvider(provider)) return { ok: false, message: 'Proveedor no reconocido.' };
   if (key.length < 12 || key.length > 500) return { ok: false, message: 'Revisa la clave y vuelve a intentarlo.' };
@@ -314,23 +348,25 @@ ipcMain.handle('providers:connect', async (_event, input) => {
     return { ok: true, provider, models, secureStorage: encrypted };
   } catch (error) { return { ok: false, message: error.message || 'No se pudo conectar con el proveedor.' }; }
 });
-ipcMain.handle('providers:disconnect', async (_event, providerInput) => {
+handleAppIpc('providers:disconnect', async (_event, providerInput) => {
   const provider = String(providerInput || '');
   if (!validProvider(provider)) return { ok: false, message: 'Proveedor no reconocido.' };
   await loadProviderSecrets(); providerSecretCache.delete(provider);
   try { await saveProviderSecrets(); } catch (error) { return { ok: false, message: error.message }; }
   return { ok: true };
 });
-ipcMain.handle('providers:generate', async (_event, input) => {
+handleAppIpc('providers:generate', async (_event, input) => {
   const requestId = String(input?.requestId || ''); const controller = new AbortController();
   if (requestId) providerRequests.set(requestId, controller);
   try { return { ok: true, ...await generateWithProvider(input || {}, controller.signal) }; }
   catch (error) { return { ok: false, message: error.name === 'AbortError' ? 'Respuesta detenida.' : error.message || 'No se pudo consultar el proveedor.' }; }
   finally { if (requestId) providerRequests.delete(requestId); }
 });
-ipcMain.on('providers:cancel', (_event, requestId) => providerRequests.get(String(requestId || ''))?.abort());
+ipcMain.on('providers:cancel', (event, requestId) => {
+  if (isTrustedAppFrame(event.senderFrame)) providerRequests.get(String(requestId || ''))?.abort();
+});
 
-app.whenReady().then(async () => {
+if (hasSingleInstanceLock) app.whenReady().then(async () => {
   app.setPath('userData', path.join(app.getPath('appData'), 'Nexo'));
   port = await findAvailablePort();
   process.env.PORT = String(port);
@@ -338,6 +374,9 @@ app.whenReady().then(async () => {
   process.env.NEXO_DATA_DIR = app.getPath('userData');
   updateConfigFile = path.join(app.getPath('userData'), 'update-repository.json');
   providerSecretsFile = path.join(app.getPath('userData'), 'provider-secrets.json');
+  if (process.platform === 'darwin' && (await readUpdateConfig())?.macAutoUpdates !== true) {
+    updaterStatus = { state: 'signature-required', message: macSignatureMessage };
+  }
   await import('../server.js');
   try {
     await waitForApp();
