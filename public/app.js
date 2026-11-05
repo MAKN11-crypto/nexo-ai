@@ -236,6 +236,7 @@ function showUpdateStatus(status) {
   const downloading = status.state === 'downloading';
   const busy = status.state === 'checking' || downloading;
   const ready = status.state === 'ready';
+  const signatureRequired = status.state === 'signature-required';
   $('#updateProgress').classList.toggle('hidden', !downloading);
   $('#updateProgressBar').style.width = `${percent}%`;
   $('#updateProgress').setAttribute('role', 'progressbar');
@@ -243,8 +244,8 @@ function showUpdateStatus(status) {
   $('#updateProgress').setAttribute('aria-valuemax', '100');
   $('#updateProgress').setAttribute('aria-valuenow', String(percent));
   $('#updatePercent').textContent = `${percent}%`;
-  $('#checkUpdates').disabled = busy || ready;
-  $('#checkUpdates').textContent = status.state === 'checking' ? 'Buscando…' : downloading ? 'Descargando…' : 'Buscar ahora';
+  $('#checkUpdates').disabled = busy || ready || signatureRequired;
+  $('#checkUpdates').textContent = signatureRequired ? 'Firma de Apple requerida' : status.state === 'checking' ? 'Buscando…' : downloading ? 'Descargando…' : 'Buscar ahora';
   $('#installUpdate').classList.toggle('hidden', !ready);
   $('#installUpdate').disabled = !ready;
 
@@ -1431,6 +1432,17 @@ $('#saveAgent').addEventListener('click', () => {
   store.agents.push(agent); persist(); $('#agentDialog').close(); render();
 });
 $('#openSidebar').addEventListener('click', () => { $('#sidebar').classList.add('open'); $('#scrim').classList.add('visible'); });
+const sidebarCollapsed = localStorage.getItem('orbit-sidebar-collapsed') === 'true';
+document.querySelector('.app-shell').classList.toggle('sidebar-collapsed', sidebarCollapsed);
+$('#toggleSidebar').setAttribute('aria-label', sidebarCollapsed ? 'Expandir barra lateral' : 'Contraer barra lateral');
+$('#toggleSidebar').setAttribute('title', sidebarCollapsed ? 'Expandir barra lateral' : 'Contraer barra lateral');
+$('#toggleSidebar').addEventListener('click', () => {
+  const shell = document.querySelector('.app-shell');
+  const collapsed = shell.classList.toggle('sidebar-collapsed');
+  localStorage.setItem('orbit-sidebar-collapsed', String(collapsed));
+  $('#toggleSidebar').setAttribute('aria-label', collapsed ? 'Expandir barra lateral' : 'Contraer barra lateral');
+  $('#toggleSidebar').setAttribute('title', collapsed ? 'Expandir barra lateral' : 'Contraer barra lateral');
+});
 $('#closeSidebar').addEventListener('click', closeMobileSidebar); $('#scrim').addEventListener('click', closeMobileSidebar);
 document.querySelectorAll('.nav-item').forEach((button) => button.addEventListener('click', () => { setView(button.dataset.view); closeMobileSidebar(); }));
 document.querySelectorAll('.suggestion').forEach((button) => button.addEventListener('click', () => { $('#prompt').value = button.dataset.prompt; autoResize(); $('#prompt').focus(); }));

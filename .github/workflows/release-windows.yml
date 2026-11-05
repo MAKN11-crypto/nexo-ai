@@ -9,7 +9,7 @@ on:
       release_tag:
         description: Etiqueta de versión que coincide con package.json
         required: true
-        default: v0.12.0
+        default: v0.13.0
         type: string
 
 permissions:
@@ -21,12 +21,15 @@ jobs:
     outputs:
       release_tag: ${{ steps.check.outputs.release_tag }}
       should_release: ${{ steps.check.outputs.should_release }}
+      mac_signing_ready: ${{ steps.check.outputs.mac_signing_ready }}
     steps:
       - name: Obtener el código
         uses: actions/checkout@v4
       - name: Comprobar si falta publicar esta versión
         id: check
         uses: actions/github-script@v7
+        env:
+          MAC_SIGNING_READY: ${{ secrets.APPLE_CERTIFICATE_P12 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
         with:
           script: |
             const fs = require('fs');
@@ -42,6 +45,7 @@ jobs:
             }
             core.setOutput('release_tag', tag);
             core.setOutput('should_release', context.eventName === 'workflow_dispatch' || !exists ? 'true' : 'false');
+            core.setOutput('mac_signing_ready', process.env.MAC_SIGNING_READY === 'true' ? 'true' : 'false');
 
   release-windows:
     needs: determine-release
@@ -82,10 +86,16 @@ jobs:
 
   release-macos:
     needs: [determine-release, release-windows]
-    if: needs.determine-release.outputs.should_release == 'true'
+    if: needs.determine-release.outputs.should_release == 'true' && needs.determine-release.outputs.mac_signing_ready == 'true'
     permissions:
       contents: write
     runs-on: macos-latest
+    env:
+      APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - name: Obtener el código
         uses: actions/checkout@v4
@@ -96,6 +106,13 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Importar certificado Developer ID (si está configurado)
+        if: ${{ env.APPLE_CERTIFICATE_P12 != '' && env.APPLE_CERTIFICATE_PASSWORD != '' }}
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ env.APPLE_CERTIFICATE_P12 }}
+          p12-password: ${{ env.APPLE_CERTIFICATE_PASSWORD }}
+
       - name: Instalar dependencias
         run: npm ci
 
@@ -104,6 +121,7 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.determine-release.outputs.release_tag }}
+          MAC_AUTO_UPDATES: ${{ secrets.APPLE_CERTIFICATE_P12 != '' && secrets.APPLE_CERTIFICATE_PASSWORD != '' && secrets.APPLE_ID != '' && secrets.APPLE_APP_SPECIFIC_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
 
       - name: Publicar instalador y actualización para Mac
         uses: softprops/action-gh-release@v2

@@ -237,6 +237,11 @@ function useUpdateRepository(config) {
 
 async function checkForUpdates() {
   const config = await readUpdateConfig();
+  if (process.platform === 'darwin' && config?.macAutoUpdates !== true) {
+    const message = 'Esta versión de Mac no tiene firma Developer ID de Apple. macOS no permite instalar sus actualizaciones con seguridad; no se descargará un paquete que termine como “damaged”.';
+    publishUpdateStatus('signature-required', message);
+    return { ok: false, message };
+  }
   if (!config?.owner || !config?.repo) {
     publishUpdateStatus('unconfigured', 'Configura el repositorio público de GitHub donde se publicarán las versiones.');
     return { ok: false, message: updaterStatus.message };

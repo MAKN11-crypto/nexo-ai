@@ -3,12 +3,12 @@ import path from 'node:path';
 
 const destination = path.resolve('desktop/update-config.json');
 const fullName = String(process.env.GITHUB_REPOSITORY || '').trim();
-let config = { owner: '', repo: '', repository: '' };
+let config = { owner: '', repo: '', repository: '', macAutoUpdates: process.env.MAC_AUTO_UPDATES === 'true' };
 
 if (fullName) {
   const match = fullName.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/);
   if (!match) throw new Error('GITHUB_REPOSITORY debe tener el formato owner/repo.');
-  config = { owner: match[1], repo: match[2], repository: `https://github.com/${match[1]}/${match[2]}` };
+  config = { owner: match[1], repo: match[2], repository: `https://github.com/${match[1]}/${match[2]}`, macAutoUpdates: process.env.MAC_AUTO_UPDATES === 'true' };
 }
 
 await writeFile(destination, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });

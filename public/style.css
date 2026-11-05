@@ -111,3 +111,41 @@ body{background:radial-gradient(ellipse at 78% 0%,#291b3d32,transparent 38%),var
 @media(max-width:700px){.tasks-view{width:calc(100% - 28px);padding:25px 0 34px}.task-card{padding:13px;gap:10px}.task-card h2{font-size:13px}.task-card-footer{gap:7px}.task-card-footer .text-button{max-width:130px}.task-filter-row{align-items:flex-start;flex-direction:column}.task-filter-row .field{width:100%}}
 .learning-history{margin-top:14px;padding:18px;border:1px solid #382f41;border-radius:14px;background:#17151b}.learning-history-heading{display:flex;justify-content:space-between;align-items:center;gap:14px}.learning-history-heading h3{margin:5px 0 0;font:620 17px var(--display);letter-spacing:-.03em}.learning-history-empty{margin:12px 0 0;padding:12px;border:1px dashed #3a3241;border-radius:9px;color:#a99fb0;font-size:11px;line-height:1.5}.learning-history-list{display:grid;gap:7px;margin-top:12px}.learning-history-item{display:flex;align-items:center;gap:10px;min-width:0;padding:10px;border:1px solid #302a36;border-radius:9px;background:#1b1820}.learning-history-item>div{display:grid;gap:4px;min-width:0;flex:1}.learning-history-item strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:550}.learning-history-item small{color:#93899c;font-size:9px}.history-state{flex:0 0 auto;padding:5px 7px;border:1px solid #453653;border-radius:999px;background:#251c2d;color:#c8a5e8;font-size:9px}.history-active{border-color:#4e4160;background:#211d29;color:#d2c3e2}.history-error{border-color:#67404b;background:#2a1d23;color:#e2abb6}.learning-history-item .text-button{flex:0 0 auto;font-size:10px}
 @media(max-width:600px){.learning-history{padding:13px}.learning-history-item{gap:7px;padding:8px}.history-state{font-size:8px}.learning-history-item strong{font-size:10px}}
+
+/* Familiar, quiet chat workspace with a persistent, collapsible navigation rail. */
+.sidebar-toggle{display:inline-flex;flex:0 0 auto;color:#b8a5cc}
+.app-shell.sidebar-collapsed .sidebar{width:68px;flex-basis:68px;padding-inline:9px;transition:width .18s ease,flex-basis .18s ease,padding .18s ease}
+.app-shell.sidebar-collapsed .brand-row{justify-content:center;padding-inline:0}
+.app-shell.sidebar-collapsed .brand{gap:0}
+.app-shell.sidebar-collapsed .brand>span,.app-shell.sidebar-collapsed .sidebar-label,.app-shell.sidebar-collapsed .sidebar-search,.app-shell.sidebar-collapsed .conversation-list,.app-shell.sidebar-collapsed .new-chat>span:not(.plus),.app-shell.sidebar-collapsed .new-chat kbd,.app-shell.sidebar-collapsed .nav-item:not(.active) .nav-count,.app-shell.sidebar-collapsed .nav-item.active .nav-count,.app-shell.sidebar-collapsed .local-card>div,.app-shell.sidebar-collapsed .profile-copy,.app-shell.sidebar-collapsed .profile .more{display:none}
+.app-shell.sidebar-collapsed .new-chat{justify-content:center;padding:9px 0}
+.app-shell.sidebar-collapsed .new-chat .plus{font-size:22px}
+.app-shell.sidebar-collapsed .nav-item{justify-content:center;padding:10px 0;font-size:0}
+.app-shell.sidebar-collapsed .nav-icon{font-size:18px}
+.app-shell.sidebar-collapsed .local-card{justify-content:center;padding:8px 0;border-color:transparent;background:transparent}
+.app-shell.sidebar-collapsed .local-card .icon-button{margin:0}
+.app-shell.sidebar-collapsed .profile{justify-content:center;padding-inline:0}
+.app-shell.sidebar-collapsed .sidebar-toggle{background:#211b29;border-color:#3a3048;color:#e0c9f5}
+.welcome{width:min(650px,calc(100% - 36px));padding:26px 0 24px}
+.welcome-mark{display:block;width:42px;height:42px;margin:0 auto 21px;border-radius:13px;box-shadow:0 6px 22px #0006}
+.welcome h1{font-size:clamp(28px,3.5vw,38px);line-height:1.2;letter-spacing:-1.6px;color:#f5f2f8}
+.welcome h1 em{font-style:normal}
+.welcome-copy{margin:10px auto 23px;color:#a69ead;font-size:14px}
+.suggestions{gap:10px}
+.suggestion{min-height:70px;padding:12px 13px;border-radius:12px;text-align:left;background:#17151b;border-color:#302b39}
+.suggestion strong{font-size:12px}
+.suggestion small{font-size:10px;color:#91899a}
+.suggestion-icon{border-radius:9px}
+.composer-options{width:min(790px,calc(100% - 40px));margin:0 auto 8px;justify-content:flex-start;gap:15px}
+.composer{border:1px solid #403748;border-radius:22px;background:#1b1820;box-shadow:0 12px 42px #0004}
+.composer textarea{font-size:14px;line-height:1.55}
+.composer:focus-within{border-color:#8a66ad;box-shadow:0 0 0 2px #a974ff17,0 12px 42px #0004}
+.composer-wrap{padding-bottom:17px}
+.disclaimer{color:#82798c}
+.topbar{height:58px;padding-inline:20px;border-bottom:0}
+.breadcrumb{font-size:13px}
+.chat-view{background:radial-gradient(ellipse at 50% 42%,#1d1725 0%,transparent 53%)}
+.messages{width:min(790px,calc(100% - 44px))}
+.message-user-bubble{border-radius:18px;background:#292331;border-color:#393142}
+.message-assistant-wrap{padding-inline:3px}
+@media(max-width:760px){.sidebar-toggle{display:none}.app-shell.sidebar-collapsed .sidebar{width:288px;flex-basis:288px}.app-shell.sidebar-collapsed .brand>span,.app-shell.sidebar-collapsed .sidebar-label,.app-shell.sidebar-collapsed .sidebar-search,.app-shell.sidebar-collapsed .conversation-list,.app-shell.sidebar-collapsed .new-chat>span:not(.plus),.app-shell.sidebar-collapsed .new-chat kbd,.app-shell.sidebar-collapsed .local-card>div,.app-shell.sidebar-collapsed .profile-copy,.app-shell.sidebar-collapsed .profile .more{display:initial}.app-shell.sidebar-collapsed .brand-row{justify-content:space-between;padding-inline:11px}.app-shell.sidebar-collapsed .new-chat{justify-content:flex-start;padding:10px 11px}.app-shell.sidebar-collapsed .new-chat kbd{display:block}.app-shell.sidebar-collapsed .nav-item{justify-content:flex-start;padding:9px 11px;font-size:13px}.app-shell.sidebar-collapsed .local-card{justify-content:flex-start;padding:11px 10px;border-color:#30332a;background:#1a1c17}.app-shell.sidebar-collapsed .profile{justify-content:flex-start;padding:13px 6px 0}.welcome{padding:15px 0}.welcome-mark{width:36px;height:36px;margin-bottom:16px}.welcome h1{font-size:29px}.welcome-copy{font-size:12px;margin-bottom:18px}.suggestions{gap:7px}.suggestion{min-height:60px;padding:9px}.composer-options{width:calc(100% - 22px);gap:0 11px}.topbar{padding-inline:12px}}
