@@ -14,4 +14,3 @@
   <ellipse cx="128" cy="128" rx="112" ry="48" transform="rotate(-28 128 128)" stroke="url(#orbit)" stroke-width="7"/>
   <path d="m128 106 7 15 15 7-15 7-7 15-7-15-15-7 15-7 7-15Z" fill="url(#gold)"/>
 </svg>
-

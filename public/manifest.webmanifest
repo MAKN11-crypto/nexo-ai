@@ -4,8 +4,8 @@
   "description": "Tu espacio personal de inteligencia artificial local y multiagente.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#11120f",
-  "theme_color": "#11120f",
+  "background_color": "#0f0e12",
+  "theme_color": "#0f0e12",
   "icons": [
     { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]

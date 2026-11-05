@@ -1,6 +1,24 @@
-# Nexo: investigación profunda y plan de mejora
+# Bit by Orbit: investigación profunda y plan de mejora
 
 Fecha de revisión: 4 de noviembre de 2026. Base del código: Nexo 0.8.0.
+
+## Revisión de producto y construcción — 5 de noviembre de 2026
+
+La revisión de los archivos que componen la interfaz identificó cuatro fricciones que impedían entender el producto: chats y ajustes mezclaban capacidades distintas; “Our AI” no tenía un espacio propio para distinguir el modelo local; los proveedores externos no podían conectarse dentro de la app; y el aprendizaje mostraba una animación de estado temporal, pero no un registro que sobreviviera al cierre. Los agentes también compartían iconos genéricos en lugar de identidades reconocibles.
+
+Esta iteración aborda esos puntos con secciones separadas de Chats, Our AI, Modelos externos y Agentes; un panel de estado del modelo y memoria; aprendizaje exclusivo del propietario con progreso en vivo e historial persistente; claves externas cifradas con el almacén del sistema en la app de escritorio; y cuatro avatares sintéticos distintos con ojos. La ruta local sigue siendo la opción inicial. La guía visible aclara que “aprender” significa guardar recuerdos e instrucciones revisables, no entrenar de forma continua los pesos de la red.
+
+Las APIs de Gemini, OpenAI y Anthropic se conectan por separado, con selección por chat y procedencia visible. Sus APIs requieren claves y pueden cobrar por solicitud; las suscripciones de ChatGPT/Claude no se pueden reutilizar como saldo de API. Solo los mensajes que se envían por esas rutas salen hacia el proveedor seleccionado. La actualización objetivo de esta iteración es `0.11.0`.
+
+Auditoría visual: el capturador de navegador y el escritorio de la app no están disponibles en este entorno, así que los cambios se basan en inspección del código y en las referencias visuales elegidas por el usuario; todavía falta revisar una captura real en Mac y Windows.
+
+### Siguiente trabajo de mayor impacto
+
+1. Panel de tarea durable: plan, subagentes con conversaciones independientes, pasos reanudables, cancelación y permisos por herramienta.
+2. Herramientas reales con aprobación visible y una carpeta de trabajo autorizada; primera tarea verificable en Blender.
+3. Pairing sencillo de Mac/S24, estado de equipos en tiempo real y acceso remoto seguro mediante VPN o relay autenticado.
+4. Mejoras del cerebro: biblioteca de conocimiento con atribución de fuente/fecha, historial editable, exportación y borrado por tema; entrenamiento de pesos solo como proceso separado, evaluado y reversible.
+5. Capturas de interfaz y revisión de accesibilidad/responsividad por tamaño de pantalla antes de presentar el instalador como listo para todos.
 
 ## 1. Resumen
 

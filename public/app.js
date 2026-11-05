@@ -1,21 +1,26 @@
 const $ = (selector) => document.querySelector(selector);
 const STORAGE_KEY = 'nexo.workspace.v1';
 const defaultAgents = [
-  { id: 'coordinator', name: 'Asistente principal', emoji: '✳', color: 'lime', description: 'Coordina tus ideas y encuentra el siguiente paso.', instruction: '' },
-  { id: 'researcher', name: 'Investigación', emoji: '⌕', color: 'green', description: 'Investiga, compara y explica con claridad.', instruction: 'Eres un agente de investigación. Ordena la pregunta, explica qué sabes y distingue hechos de dudas. No inventes fuentes ni datos.' },
-  { id: 'builder', name: 'Desarrollo', emoji: '⌘', color: 'violet', description: 'Resuelve problemas técnicos y convierte ideas en código.', instruction: 'Eres un agente de desarrollo. Propón pasos concretos, código cuando se solicite y señala dependencias o límites técnicos.' },
-  { id: 'strategist', name: 'Estrategia', emoji: '◈', color: 'amber', description: 'Evalúa opciones y transforma objetivos en planes.', instruction: 'Eres un agente de estrategia. Evalúa objetivos, opciones, riesgos y el siguiente paso más útil con claridad.' },
-  { id: 'creative', name: 'Creatividad', emoji: '✧', color: 'pink', description: 'Explora alternativas originales y propuestas realizables.', instruction: 'Eres un agente creativo. Genera opciones originales, pero conviértelas en propuestas realizables y explica brevemente cómo empezar.' },
+  { id: 'coordinator', name: 'Bit', emoji: '✳', avatar: '/icon.png', color: 'lime', description: 'Coordina tus ideas y encuentra el siguiente paso.', instruction: '' },
+  { id: 'researcher', name: 'Investigación', emoji: '⌕', avatar: '/agents/researcher.svg', color: 'green', description: 'Investiga, compara y explica con claridad.', instruction: 'Eres un agente de investigación. Ordena la pregunta, explica qué sabes y distingue hechos de dudas. No inventes fuentes ni datos.' },
+  { id: 'builder', name: 'Desarrollo', emoji: '⌘', avatar: '/agents/builder.svg', color: 'violet', description: 'Resuelve problemas técnicos y convierte ideas en código.', instruction: 'Eres un agente de desarrollo. Propón pasos concretos, código cuando se solicite y señala dependencias o límites técnicos.' },
+  { id: 'strategist', name: 'Estrategia', emoji: '◈', avatar: '/agents/strategist.svg', color: 'amber', description: 'Evalúa objetivos, opciones, riesgos y el siguiente paso más útil con claridad.', instruction: 'Eres un agente de estrategia. Evalúa objetivos, opciones, riesgos y el siguiente paso más útil con claridad.' },
+  { id: 'creative', name: 'Creatividad', emoji: '✧', avatar: '/agents/creative.svg', color: 'pink', description: 'Explora alternativas originales y propuestas realizables.', instruction: 'Eres un agente creativo. Genera opciones originales, pero conviértelas en propuestas realizables y explica brevemente cómo empezar.' },
 ];
 let store = loadStore();
 let selectedAgent = 'coordinator';
+let currentView = 'chats';
 let statusSnapshot = { connected: false, models: [], settings: { endpoint: 'http://127.0.0.1:11434', model: '' } };
+let providerSnapshot = { available: false, secureStorage: false, providers: [] };
+let learningPhase = -1;
+let learningRunError = false;
 let workspaceSyncReady = false;
 let workspaceSyncTimer;
 let workspacePollTimer;
 let workspacePollBusy = false;
 let activeGeneration;
 let activeModelPull;
+let activeProviderRequest = null;
 let pendingDocuments = [];
 let voiceModeEnabled = false;
 let voiceRecognition = null;
@@ -33,8 +38,8 @@ function loadStore() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     const customAgents = Array.isArray(saved?.agents) ? saved.agents.filter((agent) => agent?.custom) : [];
-    return { threads: Array.isArray(saved?.threads) ? saved.threads : [], agents: [...defaultAgents, ...customAgents], skills: Array.isArray(saved?.skills) ? saved.skills.slice(0, 100) : [], activeId: saved?.activeId || null, memory: Array.isArray(saved?.memory) ? saved.memory.slice(0, 30) : [], learnEnabled: saved?.learnEnabled !== false };
-  } catch { return { threads: [], agents: defaultAgents, skills: [], activeId: null, memory: [], learnEnabled: true }; }
+    return { threads: Array.isArray(saved?.threads) ? saved.threads : [], agents: [...defaultAgents, ...customAgents], skills: Array.isArray(saved?.skills) ? saved.skills.slice(0, 100) : [], learningEvents: Array.isArray(saved?.learningEvents) ? saved.learningEvents.slice(0, 30) : [], activeId: saved?.activeId || null, memory: Array.isArray(saved?.memory) ? saved.memory.slice(0, 30) : [], learnEnabled: saved?.learnEnabled !== false, provider: ['ollama', 'gemini', 'openai', 'anthropic'].includes(saved?.provider) ? saved.provider : 'ollama', providerModels: saved?.providerModels && typeof saved.providerModels === 'object' ? saved.providerModels : {}, providerModelChoices: saved?.providerModelChoices && typeof saved.providerModelChoices === 'object' ? saved.providerModelChoices : {} };
+  } catch { return { threads: [], agents: defaultAgents, skills: [], learningEvents: [], activeId: null, memory: [], learnEnabled: true, provider: 'ollama', providerModels: {}, providerModelChoices: {} }; }
 }
 function persist(options = {}) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(ownerProfileLoaded ? { ...store, memory: [], learnEnabled: false } : store)); } catch {}
@@ -44,7 +49,7 @@ function persist(options = {}) {
   }
   if (options.profile !== false && statusSnapshot.owner && ownerProfileLoaded) {
     clearTimeout(ownerProfileSaveTimer);
-    ownerProfileSaveTimer = setTimeout(() => fetch('/api/owner/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memory: store.memory, learnEnabled: store.learnEnabled, webLearningEnabled: ownerWebLearningEnabled }) }).catch(() => {}), 450);
+    ownerProfileSaveTimer = setTimeout(() => fetch('/api/owner/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memory: store.memory, learningEvents: store.learningEvents, learnEnabled: store.learnEnabled, webLearningEnabled: ownerWebLearningEnabled }) }).catch(() => {}), 450);
   }
 }
 async function loadOwnerProfile() {
@@ -52,10 +57,10 @@ async function loadOwnerProfile() {
     ownerProfileLoaded = false;
     const visibleThreads = store.threads.filter((thread) => thread.owner === false);
     const visibleSkills = store.skills.filter((skill) => skill.state === 'active');
-    const changed = visibleThreads.length !== store.threads.length || visibleSkills.length !== store.skills.length || store.memory.length > 0 || store.learnEnabled || store.agents.some((agent) => agent.custom);
+    const changed = visibleThreads.length !== store.threads.length || visibleSkills.length !== store.skills.length || store.learningEvents.length > 0 || store.memory.length > 0 || store.learnEnabled || store.agents.some((agent) => agent.custom);
     store.threads = visibleThreads;
     if (!store.threads.some((thread) => thread.id === store.activeId)) store.activeId = store.threads[0]?.id || null;
-    store.skills = visibleSkills; store.agents = defaultAgents; store.memory = []; store.learnEnabled = false; ownerWebLearningEnabled = false;
+    store.skills = visibleSkills; store.learningEvents = []; store.agents = defaultAgents; store.memory = []; store.learnEnabled = false; ownerWebLearningEnabled = false;
     if (changed) persist({ sync: false, profile: false });
     renderMemoryPanel();
     return;
@@ -66,6 +71,7 @@ async function loadOwnerProfile() {
     const profile = await response.json();
     const legacyMemory = store.memory;
     store.memory = Array.isArray(profile.memory) ? profile.memory.slice(0, 30) : [];
+    store.learningEvents = Array.isArray(profile.learningEvents) ? profile.learningEvents.slice(0, 30) : [];
     store.learnEnabled = profile.learnEnabled !== false;
     ownerWebLearningEnabled = profile.webLearningEnabled !== false;
     ownerProfileLoaded = true;
@@ -126,6 +132,11 @@ async function syncWorkspaceFromServer() {
 function currentThread() { return store.threads.find((thread) => thread.id === store.activeId); }
 function agentFor(id) { return store.agents.find((agent) => agent.id === id) || defaultAgents[0]; }
 function safe(text) { return String(text).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]); }
+function agentAvatarUrl(agent) {
+  const valid = ['/icon.png', '/agents/researcher.png', '/agents/builder.png', '/agents/strategist.png', '/agents/creative.png'];
+  return valid.includes(agent?.avatar) ? agent.avatar : agent?.id === 'coordinator' ? '/icon.png' : '/agents/creative.png';
+}
+function agentAvatarMarkup(agent, className = '') { return `<img class="agent-portrait ${safe(className)}" src="${agentAvatarUrl(agent)}" alt="" loading="lazy">`; }
 function markdown(text) {
   return safe(text)
     .replace(/```(?:[\w+-]+)?\n([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
@@ -285,10 +296,10 @@ function compressImage(file) {
 }
 
 function createThread(agentId = selectedAgent) {
-  const thread = { id: makeId(), title: 'Nuevo chat', agent: agentId, owner: statusSnapshot.owner === true, messages: [], updated: Date.now() };
-  store.threads.unshift(thread); store.activeId = thread.id; selectedAgent = agentId; persist(); render(); $('#prompt').focus();
+  const thread = { id: makeId(), title: 'Nuevo chat', agent: agentId, provider: store.provider || 'ollama', owner: statusSnapshot.owner === true, messages: [], updated: Date.now() };
+  store.threads.unshift(thread); store.activeId = thread.id; selectedAgent = agentId; persist(); render(); setView('chats'); $('#prompt').focus();
 }
-function openThread(id) { store.activeId = id; const thread = currentThread(); if (thread) selectedAgent = thread.agent; persist(); render(); }
+function openThread(id) { store.activeId = id; const thread = currentThread(); if (thread) { selectedAgent = thread.agent; store.provider = thread.provider || 'ollama'; } persist(); render(); setView('chats'); }
 function renderList() {
   const list = $('#conversationList');
   list.replaceChildren();
@@ -338,10 +349,10 @@ function renderMessages() {
   const messages = $('#messages');
   messages.replaceChildren();
   const empty = !thread || !thread.messages.length;
-  $('#welcome').classList.toggle('hidden', !empty || $('#agentsView').classList.contains('hidden') === false);
-  $('#composer').classList.toggle('hidden', !$('#agentsView').classList.contains('hidden'));
-  if (empty) { $('#threadName').textContent = thread?.title || 'Nuevo chat'; return; }
-  $('#threadName').textContent = thread.title;
+  $('#welcome').classList.toggle('hidden', !empty || currentView !== 'chats');
+  $('#composer').classList.toggle('hidden', currentView !== 'chats');
+  if (empty) { if (currentView === 'chats') $('#threadName').textContent = thread?.title || 'Nuevo chat'; return; }
+  if (currentView === 'chats') $('#threadName').textContent = thread.title;
   const lastUserIndex = thread.messages.reduce((latest, item, index) => item.role === 'user' ? index : latest, -1);
   for (const message of thread.messages) {
     const row = document.createElement('article'); row.className = `message-row ${message.role}`;
@@ -358,10 +369,11 @@ function renderMessages() {
       const sourcePanel = sources ? `<details class="web-sources"><summary>Fuentes web (${message.sources.length})</summary>${sources}</details>` : '';
       const status = message.pending && !message.content ? `<div class="typing-dots"><i></i><i></i><i></i><span>${safe(message.status || 'Pensando…')}</span></div>` : '';
       const contextNotice = message.contextNotice ? `<div class="context-notice">ⓘ ${safe(message.contextNotice)}</div>` : '';
-      const provenance = message.provenance ? `<div class="response-provenance">${message.provenance.locality === 'local' ? 'En este equipo' : safe(message.provenance.provider || 'Proveedor externo')}${message.provenance.model ? ` · ${safe(message.provenance.model)}` : ''}</div>` : '';
+      const providerLabels = { ollama: 'Our AI · local', gemini: 'Google Gemini', openai: 'OpenAI API', anthropic: 'Anthropic Claude' };
+      const provenance = message.provenance ? `<div class="response-provenance">${message.provenance.locality === 'local' ? 'Our AI · en este equipo' : safe(providerLabels[message.provenance.provider] || message.provenance.provider || 'Proveedor externo')}${message.provenance.model ? ` · ${safe(message.provenance.model)}` : ''}</div>` : '';
       const feedback = message.pending || !message.content ? '' : `<button type="button" data-rating-message="${index}" data-rating="useful" aria-pressed="${message.rating === 'useful'}" title="Marcar como útil">👍</button><button type="button" data-rating-message="${index}" data-rating="improve" aria-pressed="${message.rating === 'improve'}" title="Marcar para mejorar">👎</button>`;
       const regenerateAction = message.pending || !message.content ? '' : `<button type="button" data-regenerate-message="${index}">↻ Regenerar</button>`;
-      row.innerHTML = `<div class="message-avatar">${safe(agentFor(message.agent || 'coordinator').emoji)}</div><div class="message-content"><div class="message-author">${safe(agentFor(message.agent || 'coordinator').name)}</div><div class="message-text">${markdown(message.content)}</div>${status}${contextNotice}${steps}${sourcePanel}${provenance}<div class="message-actions"><button type="button" data-speak-message="${index}">◖ Escuchar</button><button type="button" data-copy-message="${index}">Copiar</button>${regenerateAction}${feedback}</div></div>`;
+      row.innerHTML = `<div class="message-avatar">${agentAvatarMarkup(agentFor(message.agent || 'coordinator'))}</div><div class="message-content"><div class="message-author">${safe(agentFor(message.agent || 'coordinator').name)}</div><div class="message-text">${markdown(message.content)}</div>${status}${contextNotice}${steps}${sourcePanel}${provenance}<div class="message-actions"><button type="button" data-speak-message="${index}">◖ Escuchar</button><button type="button" data-copy-message="${index}">Copiar</button>${regenerateAction}${feedback}</div></div>`;
     }
     messages.append(row);
   }
@@ -436,7 +448,7 @@ function exportFeedback() {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function exportWorkspaceBackup() {
-  const backup = { format: 'nexo-workspace', version: 1, exportedAt: new Date().toISOString(), threads: store.threads, agents: store.agents.filter((agent) => agent.custom), skills: store.skills, memory: store.memory, learnEnabled: store.learnEnabled };
+  const backup = { format: 'nexo-workspace', version: 1, exportedAt: new Date().toISOString(), threads: store.threads, agents: store.agents.filter((agent) => agent.custom), skills: store.skills, learningEvents: statusSnapshot.owner ? store.learningEvents : [], memory: store.memory, learnEnabled: store.learnEnabled };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a'); link.href = url; link.download = `bit-by-orbit-respaldo-${new Date().toISOString().slice(0, 10)}.json`; link.click();
@@ -453,15 +465,18 @@ async function importWorkspaceBackup(file) {
   const agentIds = new Set(store.agents.map((agent) => agent.id));
   const skills = Array.isArray(backup.skills) ? backup.skills.filter((skill) => typeof skill?.id === 'string' && typeof skill.name === 'string' && typeof skill.instructions === 'string') : [];
   const skillIds = new Set(store.skills.map((skill) => skill.id));
+  const learningEvents = statusSnapshot.owner && Array.isArray(backup.learningEvents) ? backup.learningEvents.filter((event) => event && typeof event.title === 'string' && ['draft', 'active', 'paused', 'error'].includes(event.state)).slice(0, 30) : [];
+  const eventIds = new Set((store.learningEvents || []).map((event) => event.id));
   store.threads.push(...imported);
   store.threads.sort((a, b) => (Number(b.updated) || 0) - (Number(a.updated) || 0));
   store.agents.push(...agents.filter((agent) => !agentIds.has(agent.id)));
   store.skills.push(...skills.filter((skill) => !skillIds.has(skill.id)));
+  store.learningEvents = [...(store.learningEvents || []), ...learningEvents.filter((event) => !eventIds.has(event.id))].slice(-30);
   const memories = Array.isArray(backup.memory) ? backup.memory.filter((item) => typeof item?.text === 'string' && item.text.length <= 240) : [];
   const memoryIds = new Set(store.memory.map((item) => item.id));
   store.memory = [...store.memory, ...memories.filter((item) => !memoryIds.has(item.id))].slice(-30);
   persist(); render(); renderMemoryPanel();
-  return { imported: imported.length, skipped: backup.threads.length - imported.length, agents: agents.length, skills: skills.length };
+  return { imported: imported.length, skipped: backup.threads.length - imported.length, agents: agents.length, skills: skills.length, learningEvents: learningEvents.length };
 }
 function renderAgents() {
   const specialties = {
@@ -471,11 +486,14 @@ function renderAgents() {
     strategist: ['Análisis', 'Decisiones'],
     creative: ['Ideas', 'Guiones'],
   };
-  $('#agentMenu').innerHTML = store.agents.map((agent) => `<button type="button" data-agent="${safe(agent.id)}"><span class="agent-chip ${safe(agent.color)}">${safe(agent.emoji)}</span><span>${safe(agent.name)}</span></button>`).join('');
+  $('#agentMenu').innerHTML = store.agents.map((agent) => `<button type="button" data-agent="${safe(agent.id)}"><span class="agent-chip">${agentAvatarMarkup(agent)}</span><span>${safe(agent.name)}</span></button>`).join('');
   $('#agentGrid').innerHTML = store.agents.map((agent) => {
-    const count = store.threads.filter((thread) => thread.agent === agent.id).length;
+    const agentThreads = store.threads.filter((thread) => thread.agent === agent.id).sort((a, b) => Number(b.updated) - Number(a.updated));
+    const count = agentThreads.length;
+    const lastQuestion = agentThreads[0]?.messages?.filter((message) => message.role === 'user').at(-1)?.content || '';
+    const preview = lastQuestion ? safe(lastQuestion.slice(0, 92)) : 'Aún no hay conversaciones con este agente.';
     const tags = specialties[agent.id] || ['Personalizado'];
-    return `<article class="agent-card"><div class="agent-card-top"><span class="agent-card-icon ${safe(agent.color)}">${safe(agent.emoji)}</span>${agent.custom ? '<span class="custom-tag">PROPIO</span>' : ''}</div><h3>${safe(agent.name)}</h3><p>${safe(agent.description)}</p><div class="agent-specialties">${tags.map((tag) => `<span>${safe(tag)}</span>`).join('')}<small>${count} ${count === 1 ? 'chat' : 'chats'}</small></div><button class="agent-open" data-open-agent="${safe(agent.id)}">Abrir chat <span>↗</span></button></article>`;
+    return `<article class="agent-card"><div class="agent-card-top"><span class="agent-card-icon">${agentAvatarMarkup(agent)}</span>${agent.custom ? '<span class="custom-tag">PROPIO</span>' : ''}</div><h3>${safe(agent.name)}</h3><p>${safe(agent.description)}</p><div class="agent-specialties">${tags.map((tag) => `<span>${safe(tag)}</span>`).join('')}<small>${count} ${count === 1 ? 'chat' : 'chats'}</small></div><div class="agent-last-chat"><span>${agentAvatarMarkup(agent)}</span><small>${preview}</small></div><button class="agent-open" data-open-agent="${safe(agent.id)}">Abrir chat <span>↗</span></button></article>`;
   }).join('');
   $('#agentMenu').querySelectorAll('[data-agent]').forEach((button) => button.addEventListener('click', () => { selectedAgent = button.dataset.agent; $('#selectedAgentName').textContent = agentFor(selectedAgent).name; $('#agentMenu').classList.add('hidden'); if (!currentThread() || currentThread().messages.length) createThread(selectedAgent); else { currentThread().agent = selectedAgent; persist(); } }));
   $('#agentGrid').querySelectorAll('[data-open-agent]').forEach((button) => button.addEventListener('click', () => { selectedAgent = button.dataset.openAgent; createThread(selectedAgent); setView('chats'); }));
@@ -489,7 +507,7 @@ function renderSkills() {
   if (autoToggle) autoToggle.checked = ownerWebLearningEnabled;
   if (!store.skills.length) { list.textContent = 'Aún no hay habilidades. Describe una para que Bit by Orbit prepare un borrador.'; return; }
   store.skills.forEach((skill) => {
-    const card = document.createElement('article'); card.className = 'skill-card';
+    const card = document.createElement('article'); card.className = 'skill-card'; card.dataset.skillId = skill.id;
     const heading = document.createElement('div'); heading.className = 'skill-card-heading';
     const name = document.createElement('strong'); name.textContent = skill.name;
     const state = document.createElement('span'); state.className = `skill-state ${skill.state === 'active' ? 'active' : ''}`; state.textContent = skill.state === 'active' ? 'Activa' : 'Borrador';
@@ -506,7 +524,7 @@ function renderSkills() {
           const previous = store.skills.find((item) => item.id === skill.originSkillId);
           if (previous) { previous.state = 'draft'; previous.updated = Date.now(); }
         }
-        skill.state = skill.state === 'active' ? 'draft' : 'active'; skill.updated = Date.now(); persist(); renderSkills();
+        skill.state = skill.state === 'active' ? 'draft' : 'active'; skill.updated = Date.now(); addLearningEvent(skill.name, skill.state === 'active' ? 'active' : 'paused', skill.id); persist(); renderSkills();
       });
       const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'text-button'; remove.textContent = 'Eliminar';
       remove.addEventListener('click', () => { store.skills = store.skills.filter((item) => item.id !== skill.id); persist(); renderSkills(); });
@@ -541,6 +559,7 @@ async function runAutomaticLearning() {
     if (!response.ok) throw new Error(result.error || 'No se pudo actualizar el conocimiento.');
     if (result.status === 'draft' && result.skill) {
       store.skills = [result.skill, ...store.skills.filter((skill) => skill.id !== result.skill.id)].slice(0, 100);
+      addLearningEvent(result.skill.name, 'draft', result.skill.id);
       persist(); renderSkills();
       if (status) status.textContent = `Bit by Orbit preparó una actualización de “${candidate.name}”. Revisa el borrador y sus fuentes para activarla.`;
     } else if (status) status.textContent = result.status === 'current' ? `“${candidate.name}” sigue al día; revisaré otra habilidad más tarde.` : `Revisé “${candidate.name}”; no encontré novedades suficientes para proponer un cambio.`;
@@ -556,21 +575,172 @@ function matchingSkills(prompt) {
   const query = String(prompt || '').toLocaleLowerCase('es-MX');
   return store.skills.filter((skill) => skill.state === 'active' && (skill.triggers || []).some((trigger) => trigger.length > 2 && query.includes(trigger.toLocaleLowerCase('es-MX')))).slice(0, 2).map(({ id, name, instructions }) => ({ id, name, instructions }));
 }
+function renderOurAi() {
+  if (!$('#ourAiView')) return;
+  const activeSkills = store.skills.filter((skill) => skill.state === 'active').length;
+  const ownerThreads = store.threads.filter((thread) => thread.owner !== false);
+  const rated = ownerThreads.flatMap((thread) => thread.messages || []).filter((message) => message.role === 'assistant' && ['useful', 'improve'].includes(message.rating));
+  $('#ourAiMemoryCount').textContent = String(statusSnapshot.owner ? store.memory.length : 0);
+  $('#ourAiSkillCount').textContent = String(activeSkills);
+  $('#ourAiExampleCount').textContent = String(statusSnapshot.owner ? rated.length : 0);
+  $('#ourAiChatCount').textContent = String(ownerThreads.length);
+  $('#ourAiStatus').textContent = statusSnapshot.connected ? 'Modelo local conectado' : 'Conecta el motor local para empezar';
+  $('#ourAiModel').textContent = statusSnapshot.connected ? statusSnapshot.settings?.model || statusSnapshot.models?.[0] || 'Ollama conectado' : 'Modelo local pendiente';
+  $('#ourAiModelDetail').textContent = statusSnapshot.connected ? 'Corre en el equipo anfitrión · no usa créditos por consulta' : 'Instala o inicia Ollama desde Ajustes del modelo.';
+  $('#ourAiNavState').textContent = statusSnapshot.connected ? '●' : '○';
+  $('#ourAiNavState').classList.toggle('nav-status-online', statusSnapshot.connected);
+  $('#ourAiNavState').classList.toggle('nav-status-offline', !statusSnapshot.connected);
+  $('#ourAiSetupNotice').classList.toggle('hidden', statusSnapshot.connected);
+  $('#learningRun').classList.toggle('hidden', learningPhase < 0);
+  if (learningPhase >= 0) document.querySelectorAll('[data-learning-stage]').forEach((item, index) => {
+    item.classList.toggle('complete', index < learningPhase);
+    item.classList.toggle('active', index === learningPhase);
+  });
+  if (learningPhase >= 0) $('#learningRunState').textContent = learningRunError ? 'DETENIDO' : learningPhase >= 4 ? 'BORRADOR LISTO' : 'EN CURSO';
+  renderLearningHistory();
+}
+function addLearningEvent(title, state, skillId = '') {
+  if (!statusSnapshot.owner || !ownerProfileLoaded) return;
+  const event = { id: makeId(), title: String(title || 'Aprendizaje').slice(0, 120), state, skillId: String(skillId || '').slice(0, 80), created: Date.now() };
+  store.learningEvents = [event, ...(store.learningEvents || []).filter((item) => item.state !== 'draft' || item.skillId !== event.skillId)].slice(0, 30);
+  persist(); renderLearningHistory();
+}
+function renderLearningHistory() {
+  const list = $('#learningHistory');
+  if (!list) return;
+  list.replaceChildren();
+  const events = statusSnapshot.owner ? (store.learningEvents || []) : [];
+  $('#learningHistoryEmpty').classList.toggle('hidden', events.length > 0);
+  $('#clearLearningHistory').classList.toggle('hidden', events.length === 0 || !statusSnapshot.owner);
+  const labels = { draft: 'Borrador creado', active: 'Habilidad activada', paused: 'Habilidad pausada', error: 'No terminó' };
+  for (const event of events.slice(0, 10)) {
+    const item = document.createElement('article'); item.className = 'learning-history-item';
+    const state = document.createElement('span'); state.className = `history-state history-${event.state}`; state.textContent = labels[event.state] || 'Aprendizaje';
+    const title = document.createElement('strong'); title.textContent = event.title;
+    const date = document.createElement('small'); date.textContent = new Date(Number(event.created) || Date.now()).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+    const copy = document.createElement('div'); copy.append(title, date); item.append(state, copy);
+    if (event.skillId) {
+      const view = document.createElement('button'); view.type = 'button'; view.className = 'text-button'; view.textContent = 'Ver';
+      view.addEventListener('click', () => { const skill = store.skills.find((candidate) => candidate.id === event.skillId); if (skill) { setView('our-ai'); document.querySelector(`[data-skill-id="${CSS.escape(skill.id)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
+      item.append(view);
+    }
+    list.append(item);
+  }
+}
+function updateLearningRun(stage, message) {
+  const phases = { prepare: 0, sources: 1, organize: 2, review: 3, done: 4 };
+  learningRunError = false;
+  learningPhase = phases[stage] ?? learningPhase;
+  $('#learningRun').classList.remove('hidden');
+  $('#learningRunTitle').textContent = learningPhase >= 4 ? 'Bit terminó el borrador' : 'Bit está aprendiendo';
+  $('#learningRunMessage').textContent = message || 'Procesando…';
+  renderOurAi();
+}
+function syncProviderRoute() {
+  const select = $('#providerSelect');
+  if (!select) return;
+  const connected = new Set((providerSnapshot.providers || []).filter((provider) => provider.connected).map((provider) => provider.id));
+  for (const option of select.options) {
+    if (option.value === 'ollama') { option.textContent = 'Our AI · Local'; option.disabled = false; continue; }
+    const label = option.value === 'gemini' ? 'Gemini' : option.value === 'openai' ? 'OpenAI API' : 'Claude';
+    option.textContent = `${label}${connected.has(option.value) ? '' : ' · conectar'}`;
+    option.disabled = !providerSnapshot.available;
+  }
+  const selected = store.provider || 'ollama';
+  if (selected !== 'ollama' && !connected.has(selected)) store.provider = 'ollama';
+  select.value = store.provider;
+  const external = store.provider !== 'ollama';
+  $('#teamMode').disabled = external;
+  $('#webMode').disabled = external;
+  if (external) { $('#teamMode').checked = false; $('#webMode').checked = false; }
+  const privacyPill = $('#privacyPill');
+  if (privacyPill) privacyPill.innerHTML = `<span class="privacy-dot"></span>${external ? `Proveedor externo · ${store.provider === 'gemini' ? 'Gemini' : store.provider === 'openai' ? 'OpenAI API' : 'Claude'}` : 'Procesamiento local'}`;
+  $('#composerPrivacy').textContent = external ? 'Mensaje y archivos se envían al proveedor.' : 'Procesamiento en tu equipo';
+}
+function renderProviderCards() {
+  document.querySelectorAll('[data-provider-card]').forEach((card) => {
+    const provider = card.dataset.providerCard;
+    const connected = providerSnapshot.providers?.find((item) => item.id === provider)?.connected === true;
+    const state = card.querySelector('[data-provider-state]');
+    const key = card.querySelector('[data-provider-key]');
+    const model = card.querySelector('[data-provider-model]');
+    const connect = card.querySelector('[data-provider-connect]');
+    const disconnect = card.querySelector('[data-provider-disconnect]');
+    const secureNote = card.querySelector('.provider-secure-note');
+    state.textContent = connected ? 'Conectado' : providerSnapshot.available ? 'Desconectado' : 'Solo app de escritorio';
+    state.classList.toggle('connected', connected);
+    connect.disabled = !providerSnapshot.available || !providerSnapshot.secureStorage || !statusSnapshot.owner;
+    key.disabled = !providerSnapshot.available || !providerSnapshot.secureStorage || !statusSnapshot.owner;
+    disconnect.classList.toggle('hidden', !connected);
+    if (!providerSnapshot.secureStorage) secureNote.textContent = 'El almacén seguro del sistema no está disponible; conectar está desactivado para proteger tu clave.';
+    else secureNote.textContent = 'La clave se guarda cifrada en este equipo y no se copia a tus otros dispositivos.';
+    model.replaceChildren();
+    const models = Array.isArray(store.providerModels?.[provider]) ? store.providerModels[provider] : [];
+    if (connected && models.length) {
+      models.forEach((item) => model.add(new Option(item, item)));
+      const chosen = store.providerModelChoices?.[provider] || models[0];
+      model.value = models.includes(chosen) ? chosen : models[0];
+      model.disabled = false;
+    } else {
+      model.add(new Option(providerSnapshot.available ? 'Conecta para cargar modelos' : 'Disponible en la app de escritorio', ''));
+      model.disabled = true;
+    }
+  });
+  $('#providersFooter').textContent = !providerSnapshot.available
+    ? 'Para proteger las claves, las conexiones externas se administran desde la app de escritorio. En esta vista web puedes seguir usando Our AI local.'
+    : !providerSnapshot.secureStorage
+      ? 'El almacén seguro del sistema no está disponible; no conectes una clave en este momento.'
+      : 'Las claves se verifican y guardan cifradas en este equipo. No se copian a tus otros dispositivos.';
+}
+async function refreshProviderModels(force = false) {
+  if (!window.nexoProviders?.models || !providerSnapshot.available) return;
+  const needsRefresh = (providerSnapshot.providers || []).some((provider) => provider.connected && !store.providerModels?.[provider.id]?.length);
+  if (!force && !needsRefresh) return;
+  const button = $('#refreshProviderModels'); button.disabled = true; button.textContent = 'Actualizando…';
+  try {
+    for (const provider of providerSnapshot.providers || []) {
+      if (!provider.connected) continue;
+      const result = await window.nexoProviders.models(provider.id);
+      if (result?.ok && result.models?.length) {
+        store.providerModels[provider.id] = result.models;
+        if (!result.models.includes(store.providerModelChoices?.[provider.id])) store.providerModelChoices[provider.id] = result.models[0];
+      }
+    }
+    persist(); renderProviderCards();
+    $('#providersFooter').textContent = 'Lista de modelos actualizada desde las cuentas que conectaste.';
+  } finally { button.disabled = false; button.textContent = '↻ Actualizar modelos'; }
+}
+async function refreshProviders() {
+  if (!window.nexoProviders?.list) { providerSnapshot = { available: false, secureStorage: false, providers: [] }; }
+  else {
+    try { providerSnapshot = { available: true, ...(await window.nexoProviders.list()) }; }
+    catch { providerSnapshot = { available: false, secureStorage: false, providers: [] }; }
+  }
+  renderProviderCards(); syncProviderRoute();
+}
 function render() {
   renderList(); renderMessages(); renderAgents(); renderSkills();
   renderMemoryPanel();
   updateFeedbackCount();
   const thread = currentThread();
   selectedAgent = thread?.agent || selectedAgent;
+  if (thread?.provider && ['ollama', 'gemini', 'openai', 'anthropic'].includes(thread.provider)) store.provider = thread.provider;
   $('#selectedAgentName').textContent = agentFor(selectedAgent).name;
+  renderOurAi(); renderProviderCards(); syncProviderRoute();
 }
 function setView(view) {
-  const agents = view === 'agents';
-  $('#agentsView').classList.toggle('hidden', !agents);
-  $('#chatView').classList.toggle('hidden', agents);
-  $('#viewName').textContent = agents ? 'Agentes' : 'Chats';
+  currentView = ['chats', 'agents', 'our-ai', 'providers'].includes(view) ? view : 'chats';
+  const views = { chats: '#chatView', agents: '#agentsView', 'our-ai': '#ourAiView', providers: '#providersView' };
+  for (const [key, selector] of Object.entries(views)) $(selector).classList.toggle('hidden', currentView !== key);
+  const titles = { chats: 'Chats', agents: 'Agentes', 'our-ai': 'Our AI', providers: 'Modelos externos' };
+  $('#viewName').textContent = titles[currentView];
   document.querySelectorAll('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.view === view));
-  if (agents) $('#threadName').textContent = `${store.agents.length} agentes`;
+  if (currentView === 'chats') $('#threadName').textContent = currentThread()?.title || 'Nuevo chat';
+  else if (currentView === 'agents') $('#threadName').textContent = `${store.agents.length} agentes`;
+  else if (currentView === 'our-ai') $('#threadName').textContent = 'Aprendizaje y memoria';
+  else $('#threadName').textContent = 'Conexiones opcionales';
+  renderMessages(); renderOurAi();
+  if (currentView === 'providers') refreshProviderModels();
 }
 function setConnection(connected, label, model = '') {
   $('#localDot').classList.toggle('online', connected);
@@ -619,7 +789,7 @@ async function refreshStatus() {
     }
     setConnection(statusSnapshot.connected, statusSnapshot.connected ? 'Conectado' : 'Equipo listo', savedModel || (models[0] ? `${models.length} modelos disponibles` : 'Configura un modelo local'));
     renderNodes();
-    renderSkills();
+    renderSkills(); renderOurAi(); syncProviderRoute();
   } catch { setConnection(false, 'App fuera de línea', ''); }
 }
 function renderNodes() {
@@ -677,12 +847,29 @@ async function sendMessage(text = $('#prompt').value) {
   const context = documents.filter((document) => document.type !== 'image').map((document) => `--- ${document.name} ---\n${document.text}`).join('\n\n');
   const images = documents.filter((document) => document.type === 'image').map(({ name, mime, data }) => ({ name, mime, data }));
   thread.messages.push({ role: 'user', content: prompt, attachments: documents.map(({ name, type }) => ({ name, type })), context, images }); thread.pending = true; thread.team = $('#teamMode').checked;
-  const assistantMessage = { role: 'assistant', agent: selectedAgent, content: '', steps: [], sources: [], team: thread.team, pending: true, status: thread.team ? 'Reuniendo al equipo…' : 'Pensando…' };
+  const provider = thread.provider || store.provider || 'ollama';
+  const assistantMessage = { role: 'assistant', agent: selectedAgent, content: '', steps: [], sources: [], team: thread.team, pending: true, status: thread.team ? 'Reuniendo al equipo…' : provider === 'ollama' ? 'Pensando en tu equipo…' : `Consultando ${provider === 'gemini' ? 'Gemini' : provider === 'openai' ? 'OpenAI API' : 'Claude'}…` };
   thread.messages.push(assistantMessage);
   $('#prompt').value = ''; autoResize(); renderFileTray(); persist(); render(); $('#sendButton').disabled = true; $('#stopButton').classList.remove('hidden');
   activeGeneration = new AbortController();
   let lastPaint = 0;
   try {
+    if (provider !== 'ollama') {
+      if (!providerSnapshot.available || !window.nexoProviders?.generate) throw new Error('Los modelos externos se conectan desde la app de escritorio.');
+      const providerAgent = agentFor(selectedAgent);
+      const system = selectedAgent === 'coordinator'
+        ? 'Eres Bit, el asistente personal de Bit by Orbit. Responde en el idioma del usuario, con claridad y honestidad. No inventes datos ni capacidades. Indica incertidumbre cuando haga falta.'
+        : `${providerAgent.instruction} Responde en español. No inventes hechos ni capacidades.`;
+      const skillContext = skills.length ? `\n\nHabilidades del propietario aprobadas para este tema (son procedimientos de contexto, no permisos de herramientas):\n${skills.map((skill) => `## ${skill.name}\n${skill.instructions}`).join('\n\n')}` : '';
+      const fullPrompt = `${context ? `Documentos adjuntos seleccionados por el usuario:\n${context}\n\n` : ''}${memory ? `${memory}\n\n` : ''}${prompt}${skillContext}`;
+      activeProviderRequest = makeId();
+      const result = await window.nexoProviders.generate({ requestId: activeProviderRequest, provider, model: store.providerModelChoices?.[provider] || store.providerModels?.[provider]?.[0], system, history, prompt: fullPrompt, images: images.map((image) => ({ mime: image.mime, data: image.data })) });
+      if (!result?.ok) throw new Error(result?.message || 'El proveedor no pudo responder.');
+      assistantMessage.content = result.content;
+      assistantMessage.provenance = { provider: result.provider, model: result.model || null, locality: 'external' };
+      assistantMessage.pending = false;
+      renderMessages();
+    } else {
     const response = await fetch('/api/chat', { method: 'POST', signal: activeGeneration.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, context, memory, skills, images: images.map((image) => ({ mime: image.mime, data: image.data })), history, agent: selectedAgent, agentInstruction: agentFor(selectedAgent).instruction, team: thread.team, webSearch: $('#webMode').checked }) });
     if (!response.ok) { const result = await response.json(); throw new Error(result.error || 'No se pudo responder.'); }
     const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = '';
@@ -714,10 +901,13 @@ async function sendMessage(text = $('#prompt').value) {
       if (event.type === 'done') { assistantMessage.content = event.content; assistantMessage.steps = event.steps || assistantMessage.steps; assistantMessage.sources = event.sources || assistantMessage.sources; assistantMessage.contextNotice = event.contextNotice || ''; assistantMessage.provenance = event.provenance || null; }
       if (event.type === 'error') throw new Error(event.message || 'No se pudo responder.');
     }
+    }
   } catch (error) {
-    assistantMessage.content = `${assistantMessage.content ? `${assistantMessage.content}\n\n` : ''}${error.name === 'AbortError' ? 'Respuesta detenida.' : `No pude completar la respuesta. ${error.message}\n\nAbre Ajustes para conectar el motor local y elegir un modelo.`}`;
+    assistantMessage.content = activeGeneration?.signal.aborted || error.name === 'AbortError'
+      ? `${assistantMessage.content ? `${assistantMessage.content}\n\n` : ''}Respuesta detenida.`
+      : `${assistantMessage.content ? `${assistantMessage.content}\n\n` : ''}No pude completar la respuesta. ${error.message}\n\n${provider === 'ollama' ? 'Abre Ajustes para conectar el motor local y elegir un modelo.' : 'Revisa la conexión en Modelos externos.'}`;
   } finally {
-    assistantMessage.pending = false; thread.pending = false; thread.updated = Date.now(); activeGeneration = null; persist(); render(); $('#sendButton').disabled = false; $('#stopButton').classList.add('hidden'); $('#prompt').focus();
+    assistantMessage.pending = false; thread.pending = false; thread.updated = Date.now(); activeGeneration = null; activeProviderRequest = null; persist(); render(); $('#sendButton').disabled = false; $('#stopButton').classList.add('hidden'); $('#prompt').focus();
     if (voiceModeEnabled) {
       if (assistantMessage.content && !assistantMessage.content.startsWith('No pude completar la respuesta.')) speakVoiceResponse(assistantMessage.content);
       else setTimeout(startVoiceRecognition, 500);
@@ -843,18 +1033,21 @@ async function prepareLocalModel() {
 }
 async function initializeApp() {
   $('#shortcutHint').textContent = navigator.platform.toLowerCase().includes('mac') ? '⌘ K' : 'Ctrl K';
+  const learningPanel = $('#skillsPanel');
+  if (learningPanel) $('#learningPanelMount').append(learningPanel);
   await initializeUpdateUI();
   window.nexoRuntime?.onInstallStatus((status) => {
     if (status?.message) $('#ollamaSetupStatus').textContent = status.message;
     $('#installOllama').disabled = ['installing', 'starting'].includes(status?.state);
   });
   await refreshStatus();
+  await refreshProviders();
   await syncWorkspaceFromServer();
   render();
   startAutomaticLearning();
   if (!statusSnapshot.connected) {
-    $('#settingsDialog').showModal();
     $('#settingsMessage').textContent = 'Sigue los pasos de Ollama aquí. No necesitas cuenta ni claves; el modelo se descarga desde Bit by Orbit.';
+    setView('our-ai');
     return;
   }
   await prepareLocalModel();
@@ -872,7 +1065,7 @@ $('#updateToastDismiss').addEventListener('click', () => {
   $('#updateToast').classList.add('hidden');
 });
 $('#composer').addEventListener('submit', (event) => { event.preventDefault(); sendMessage(); });
-$('#stopButton').addEventListener('click', () => activeGeneration?.abort());
+$('#stopButton').addEventListener('click', () => { activeGeneration?.abort(); if (activeProviderRequest) window.nexoProviders?.cancel(activeProviderRequest); });
 $('#prompt').addEventListener('input', autoResize);
 $('#attachFile').addEventListener('click', () => $('#fileInput').click());
 $('#fileInput').addEventListener('change', async (event) => {
@@ -899,6 +1092,59 @@ $('#fileInput').addEventListener('change', async (event) => {
 });
 $('#prompt').addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); $('#composer').requestSubmit(); } });
 $('#agentPicker').addEventListener('click', () => $('#agentMenu').classList.toggle('hidden'));
+$('#providerSelect').addEventListener('change', () => {
+  const next = $('#providerSelect').value;
+  if (next !== 'ollama' && !providerSnapshot.providers?.some((provider) => provider.id === next && provider.connected)) {
+    store.provider = currentThread()?.provider || 'ollama'; syncProviderRoute(); setView('providers'); return;
+  }
+  store.provider = next;
+  if (currentThread()) currentThread().provider = next;
+  persist(); syncProviderRoute(); renderMessages();
+});
+$('#ourAiSettings').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
+$('#ourAiChooseModel').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
+$('#ourAiConnectButton').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
+$('#refreshProviderModels').addEventListener('click', () => refreshProviderModels(true));
+document.querySelectorAll('[data-provider-card]').forEach((card) => {
+  const provider = card.dataset.providerCard;
+  const keyInput = card.querySelector('[data-provider-key]');
+  const connectButton = card.querySelector('[data-provider-connect]');
+  const modelSelect = card.querySelector('[data-provider-model]');
+  connectButton.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    const state = card.querySelector('[data-provider-state]');
+    if (!key) { state.textContent = 'Pega primero tu clave'; keyInput.focus(); return; }
+    let connectionError = '';
+    connectButton.disabled = true; connectButton.textContent = 'Verificando…'; state.textContent = 'Probando la clave…';
+    try {
+      const result = await window.nexoProviders?.connect(provider, key);
+      if (!result?.ok) throw new Error(result?.message || 'No se pudo conectar con este proveedor.');
+      store.providerModels[provider] = result.models;
+      store.providerModelChoices[provider] = result.models[0];
+      persist();
+      providerSnapshot.providers = (providerSnapshot.providers || []).map((item) => item.id === provider ? { ...item, connected: true } : item);
+      keyInput.value = '';
+      renderProviderCards(); syncProviderRoute();
+      state.textContent = 'Conectado';
+      $('#providersFooter').textContent = result.secureStorage ? `${provider === 'gemini' ? 'Gemini' : provider === 'openai' ? 'OpenAI API' : 'Claude'} quedó verificado. Elige el modelo en esta tarjeta y luego selecciónalo en el chat.` : 'Clave verificada para esta sesión; no quedó guardada porque falta almacén seguro del sistema.';
+    } catch (error) { connectionError = error.message || 'No se pudo conectar'; }
+    finally { connectButton.textContent = 'Conectar y verificar'; renderProviderCards(); if (connectionError) $('#providersFooter').textContent = connectionError; }
+  });
+  card.querySelector('[data-provider-disconnect]').addEventListener('click', async () => {
+    const state = card.querySelector('[data-provider-state]');
+    state.textContent = 'Desconectando…';
+    const result = await window.nexoProviders?.disconnect(provider);
+    if (!result?.ok) { state.textContent = result?.message || 'No se pudo desconectar'; return; }
+    providerSnapshot.providers = (providerSnapshot.providers || []).map((item) => item.id === provider ? { ...item, connected: false } : item);
+    delete store.providerModels[provider]; delete store.providerModelChoices[provider];
+    if (store.provider === provider) store.provider = 'ollama';
+    persist(); renderProviderCards(); syncProviderRoute();
+  });
+  modelSelect.addEventListener('change', () => {
+    store.providerModelChoices[provider] = modelSelect.value;
+    persist();
+  });
+});
 $('#openSettings').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
 $('#topSettings').addEventListener('click', () => { refreshStatus(); $('#settingsDialog').showModal(); });
 $('#startOllama').addEventListener('click', async () => {
@@ -1008,20 +1254,42 @@ $('#saveMemory').addEventListener('click', () => {
 $('#learnSkill').addEventListener('click', async () => {
   const goal = $('#skillGoal').value.trim(); const button = $('#learnSkill'); const status = $('#skillStatus');
   if (goal.length < 5) { status.textContent = 'Describe la habilidad con un poco más de detalle.'; return; }
-  button.disabled = true; status.textContent = 'Buscando referencias y preparando un borrador con el modelo local…';
+  button.disabled = true; status.textContent = 'Preparando el aprendizaje…';
+  $('#learningSources').replaceChildren(); updateLearningRun('prepare', 'Preparando tu solicitud…');
   try {
     const styleLearning = /hablarme|hablar contigo|mi estilo|mi forma de responder|cómo responderme|como responderme/i.test(goal);
     const personalExamples = styleLearning ? getRatedExamples().slice(0, 8) : [];
     const payload = { goal, ...(styleLearning ? { preferences: store.memory.map((item) => item.text), examples: personalExamples } : {}) };
-    status.textContent = styleLearning ? 'Comparando tus preferencias y respuestas marcadas en este dispositivo…' : 'Buscando referencias y preparando un borrador con el modelo local…';
     const response = await fetch('/api/skills/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'No pude preparar la habilidad.');
+    if (!response.ok) { const result = await response.json(); throw new Error(result.error || 'No pude preparar la habilidad.'); }
+    const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = ''; let result = null;
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const lines = buffer.split('\n'); buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line);
+        if (event.type === 'stage') { updateLearningRun(event.stage, event.message); status.textContent = event.message || 'Aprendiendo…'; }
+        if (event.type === 'sources') {
+          const sourceList = $('#learningSources'); sourceList.replaceChildren();
+          (event.sources || []).forEach((source) => { try { const url = new URL(source.url); if (!['http:', 'https:'].includes(url.protocol)) return; const link = document.createElement('a'); link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = source.title || url.hostname; sourceList.append(link); } catch {} });
+          if (!sourceList.childElementCount) sourceList.textContent = styleLearning ? 'Este aprendizaje usa solo preferencias y ejemplos guardados en tu equipo.' : 'No se encontraron referencias web verificables; Bit lo marcará para que revises la evidencia.';
+        }
+        if (event.type === 'done') result = event;
+        if (event.type === 'error') throw new Error(event.message || 'No pude preparar la habilidad.');
+      }
+      if (done) break;
+    }
+    if (buffer.trim()) { const event = JSON.parse(buffer); if (event.type === 'done') result = event; if (event.type === 'error') throw new Error(event.message || 'No pude preparar la habilidad.'); }
+    if (!result?.skill) throw new Error('El aprendizaje terminó sin crear un borrador. Intenta otra vez.');
+    updateLearningRun('done', 'Borrador guardado. Revísalo y activa solo lo que quieras que Bit use.');
     store.skills = [result.skill, ...store.skills.filter((skill) => skill.id !== result.skill.id)].slice(0, 100);
+    addLearningEvent(goal, 'draft', result.skill.id);
     persist(); renderSkills(); $('#skillGoal').value = '';
     status.textContent = result.warning || `Borrador “${result.skill.name}” guardado. Revisa sus fuentes y actívalo cuando confíes en sus instrucciones.`;
-  } catch (error) { status.textContent = error.message; }
-  finally { button.disabled = false; }
+  } catch (error) { learningRunError = true; addLearningEvent(goal, 'error'); status.textContent = error.message; $('#learningRunState').textContent = 'DETENIDO'; $('#learningRunMessage').textContent = error.message; }
+  finally { button.disabled = false; renderOurAi(); }
 });
 $('#copyOwnerCode').addEventListener('click', async () => {
   const code = statusSnapshot.ownerPairCode;
@@ -1075,6 +1343,7 @@ $('#downloadModel').addEventListener('click', async () => {
 });
 $('#cancelModelPull').addEventListener('click', () => activeModelPull?.abort());
 $('#clearChats').addEventListener('click', async () => { if (confirm('¿Borrar todas las conversaciones sincronizadas en este equipo?')) { store.threads = []; store.activeId = null; persist(); render(); try { await fetch('/api/workspace/clear', { method: 'POST' }); } catch {} } });
+$('#clearLearningHistory').addEventListener('click', () => { if (!statusSnapshot.owner || !confirm('¿Borrar el historial de aprendizaje? Las habilidades y recuerdos guardados no se borrarán.')) return; store.learningEvents = []; persist(); renderLearningHistory(); });
 $('#chatSearch').addEventListener('input', renderList);
 $('#createAgent').addEventListener('click', () => { $('#agentNameInput').value = ''; $('#agentPromptInput').value = ''; $('#agentDialog').showModal(); });
 $('#saveAgent').addEventListener('click', () => {

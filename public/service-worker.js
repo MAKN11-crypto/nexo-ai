@@ -1,5 +1,5 @@
-const CACHE = 'bit-by-orbit-shell-v4';
-const SHELL = ['/', '/style.css', '/app.js', '/manifest.webmanifest', '/icon.png'];
+const CACHE = 'bit-by-orbit-shell-v6';
+const SHELL = ['/', '/style.css', '/app.js', '/manifest.webmanifest', '/icon.png', '/ai-brain.svg', '/agents/researcher.svg', '/agents/builder.svg', '/agents/strategist.svg', '/agents/creative.svg'];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL))));
 self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))));
 self.addEventListener('fetch', (event) => {

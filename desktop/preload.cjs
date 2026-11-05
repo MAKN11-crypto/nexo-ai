@@ -21,3 +21,12 @@ contextBridge.exposeInMainWorld('nexoRuntime', {
     return () => ipcRenderer.removeListener('ollama:install-status', listener);
   },
 });
+
+contextBridge.exposeInMainWorld('nexoProviders', {
+  list: () => ipcRenderer.invoke('providers:list'),
+  models: (provider) => ipcRenderer.invoke('providers:models', provider),
+  connect: (provider, key) => ipcRenderer.invoke('providers:connect', { provider, key }),
+  disconnect: (provider) => ipcRenderer.invoke('providers:disconnect', provider),
+  generate: (input) => ipcRenderer.invoke('providers:generate', input),
+  cancel: (requestId) => ipcRenderer.send('providers:cancel', requestId),
+});

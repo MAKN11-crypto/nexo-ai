@@ -1,6 +1,6 @@
 # Bit by Orbit
 
-Bit by Orbit es el prototipo de una app de IA personal, local y multiagente. La interfaz está en español y se adapta a escritorio y móvil. Los chats se ejecutan con un modelo abierto alojado en un motor local compatible con Ollama.
+Bit by Orbit es una app de IA personal, local y multiagente. La interfaz está en español y se adapta a escritorio y móvil. Los chats se ejecutan con un modelo abierto alojado en un motor local compatible con Ollama.
 
 ## Lo que ya hace
 
@@ -8,6 +8,8 @@ Bit by Orbit es el prototipo de una app de IA personal, local y multiagente. La 
 - Chats independientes por agente; permite crear agentes personalizados.
 - Búsqueda en tiempo real por título y contenido de todas las conversaciones guardadas.
 - Borradores de habilidades reutilizables: combina el modelo local con fragmentos de búsqueda web, guarda fuentes y exige revisar/activar la habilidad antes de aplicarla a chats relacionados. El propietario es el único que puede aprender, activar o borrar habilidades; el código de propietario se muestra en el anfitrión y permite desbloquear los dispositivos propios. El progreso se sincroniza y se incluye en los respaldos. No modifica los pesos del modelo.
+- Espacio **Our AI** con estado del modelo local, recuerdos, habilidades, ejemplos valorados y conversaciones; conserva un historial privado de solicitudes de aprendizaje, borradores, activaciones y errores.
+- Conexiones opcionales con Gemini, OpenAI API y Claude API desde la app de escritorio. Las claves se protegen con el almacén cifrado del sistema y no se copian a otros dispositivos. Las APIs pueden tener cobro aparte; las suscripciones de ChatGPT o Claude no cubren su uso.
 - Aprendizaje continuo personal del propietario: guarda preferencias expresadas claramente en un perfil privado del anfitrión y recupera pasajes de sus chats en futuras respuestas. Las conversaciones de invitados no se incorporan a ese perfil; el aprendizaje de estilo puede usar respuestas que el propietario calificó.
 - Investigación continua opcional del propietario: mientras la app está abierta, revisa por turnos las habilidades activas con búsqueda web y Ollama local, y prepara borradores citados cuando encuentra fuentes nuevas. Solo el propietario decide activarlos. No recorre toda la web ni cambia los pesos del modelo.
 - Privacidad entre dispositivos: los invitados solo reciben sus propios chats y las habilidades activas; no pueden consultar chats privados, perfiles o agentes personalizados del propietario, cambiar nodos/modelos ni borrar el espacio compartido.
@@ -35,7 +37,7 @@ Bit by Orbit es el prototipo de una app de IA personal, local y multiagente. La 
 
 ## Limitaciones actuales
 
-La app requiere Ollama como motor local. En Windows, la app de escritorio permite instalarlo desde WinGet con un botón; en otros sistemas, ofrece el enlace oficial y una guía de instalación. Bit by Orbit intenta iniciar Ollama al abrirse y permite reintentarlo desde Ajustes. No requiere una cuenta de Ollama. Cuando el motor conecta, Bit by Orbit descarga un modelo local; el catálogo incluye análisis de fotos con el modelo adecuado, pero generación de imágenes y videos aún no está integrada.
+La app requiere Ollama como motor local para **Our AI**. En Windows, la app de escritorio permite instalarlo desde WinGet con un botón; en otros sistemas, ofrece el enlace oficial y una guía de instalación. Bit by Orbit intenta iniciar Ollama al abrirse y permite reintentarlo desde Ajustes. No requiere una cuenta de Ollama. También se pueden conectar APIs externas de forma opcional; su uso puede generar cobros y no aprovecha las suscripciones de ChatGPT o Claude. Cuando Ollama conecta, Bit by Orbit descarga un modelo local; el catálogo incluye análisis de fotos con el modelo adecuado, pero generación de imágenes y videos aún no está integrada.
 
 Los instaladores son específicos de cada sistema: `.exe` para Windows y `.dmg` para Mac Apple Silicon. El paquete de Mac no está firmado ni notarizado, así que macOS puede pedir abrirlo manualmente desde Finder con clic derecho → Abrir. El Galaxy S24 usa la interfaz web adaptable desde el enlace privado de la computadora anfitriona; ambos deben estar en la misma red. Esta versión todavía no publica un APK de Android.
 
@@ -59,7 +61,7 @@ Abre `http://localhost:4173`. Para permitir acceso desde otros dispositivos, usa
 
 Para la app de escritorio, instala las dependencias del proyecto y usa `npm run desktop`. Los scripts `package:mac`, `package:win` y `package:linux` generan paquetes con electron-builder. Windows produce instalador NSIS y ZIP portable; Mac produce DMG y ZIP para Apple Silicon.
 
-El flujo `.github/workflows/release-windows.yml` compila Windows y Mac cuando cambia la versión de `package.json` en la rama `MAKN10`; también permite publicar manualmente desde GitHub Actions. La versión se convierte en una etiqueta `vX.Y.Z` y se publica como GitHub Release. La primera versión `v0.9.0` está en Releases. El instalador incluye la dirección del repositorio al compilarse. En Windows, Bit by Orbit revisa al abrir, descarga versiones compatibles en segundo plano y permite reiniciar para aplicarlas; si se cierra con una actualización lista, se instala al salir. Los chats y preferencias viven en los datos de usuario y sobreviven a la actualización. El ZIP portable no se autoactualiza. Sin certificados de firma, Windows puede advertir que el editor es desconocido y macOS puede pedir confirmación manual al abrir la app.
+El flujo `.github/workflows/release-windows.yml` compila Windows y Mac cuando cambia la versión de `package.json` en la rama `MAKN10`; también permite publicar manualmente desde GitHub Actions. La versión se convierte en una etiqueta `vX.Y.Z` y se publica como GitHub Release. Los instaladores usan el nombre y el icono de Bit by Orbit. En Windows, Bit by Orbit revisa al abrir, descarga versiones compatibles en segundo plano y permite reiniciar para aplicarlas; si se cierra con una actualización lista, se instala al salir. Los chats y preferencias viven en los datos de usuario y sobreviven a la actualización. El ZIP portable no se autoactualiza. Sin certificados de firma, Windows puede advertir que el editor es desconocido y macOS puede pedir confirmación manual al abrir la app.
 
 ## Modelo e inferencia
 
