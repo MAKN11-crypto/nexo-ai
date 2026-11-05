@@ -1444,6 +1444,24 @@ $('#downloadModel').addEventListener('click', async () => {
 });
 $('#cancelModelPull').addEventListener('click', () => activeModelPull?.abort());
 $('#clearChats').addEventListener('click', async () => { if (confirm('¿Borrar todas las conversaciones sincronizadas en este equipo?')) { store.threads = []; store.activeId = null; persist(); render(); try { await fetch('/api/workspace/clear', { method: 'POST' }); } catch {} } });
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  $('#installPwaButton')?.classList.remove('hidden');
+});
+$('#installPwaButton')?.addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  $('#installPwaButton').classList.add('hidden');
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  $('#installPwaButton')?.classList.add('hidden');
+  $('#pwaInstallHelp').textContent = 'Bit by Orbit quedó instalada desde el navegador. Las versiones web se actualizan al visitar la página.';
+});
 $('#taskStatusFilter').addEventListener('change', renderTaskHub);
 $('#newTeamTask').addEventListener('click', () => { store.provider = 'ollama'; createThread('coordinator'); $('#teamMode').checked = true; syncProviderRoute(); $('#prompt').focus(); });
 $('#tasksEmptyStart').addEventListener('click', () => { store.provider = 'ollama'; createThread('coordinator'); $('#teamMode').checked = true; syncProviderRoute(); $('#prompt').focus(); });

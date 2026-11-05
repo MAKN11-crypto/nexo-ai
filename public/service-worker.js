@@ -1,7 +1,18 @@
-const CACHE = 'bit-by-orbit-shell-v9';
-const SHELL = ['/', '/style.css', '/app.js', '/manifest.webmanifest', '/icon.png', '/ai-brain.svg', '/agents/researcher.svg', '/agents/builder.svg', '/agents/strategist.svg', '/agents/creative.svg'];
+const CACHE = 'bit-by-orbit-shell-v11';
+const SHELL = [
+  '/',
+  '/style.css?v=11',
+  '/app.js?v=11',
+  '/manifest.webmanifest?v=11',
+  '/icon.png',
+  '/ai-brain.svg',
+  '/agents/researcher.svg',
+  '/agents/builder.svg',
+  '/agents/strategist.svg',
+  '/agents/creative.svg',
+];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL))));
-self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))));
+self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith('bit-by-orbit-shell-') && key !== CACHE).map((key) => caches.delete(key))))));
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.pathname.startsWith('/api/')) return;

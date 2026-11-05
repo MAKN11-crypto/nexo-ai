@@ -146,12 +146,17 @@ function blockUntrustedNavigation(event, target) {
 
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
-async function findAvailablePort() {
+async function probePort(requestedPort) {
   const probe = net.createServer();
-  await new Promise((resolve, reject) => { probe.once('error', reject); probe.listen(0, '0.0.0.0', resolve); });
+  await new Promise((resolve, reject) => { probe.once('error', reject); probe.listen(requestedPort, '0.0.0.0', resolve); });
   const { port: available } = probe.address();
   await new Promise((resolve) => probe.close(resolve));
   return available;
+}
+
+async function findAvailablePort() {
+  try { return await probePort(4173); }
+  catch { return probePort(0); }
 }
 
 async function ollamaIsReady() {
