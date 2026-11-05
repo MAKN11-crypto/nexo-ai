@@ -11,6 +11,7 @@ let store = loadStore();
 let selectedAgent = 'coordinator';
 let currentView = 'chats';
 let statusSnapshot = { connected: false, models: [], settings: { endpoint: 'http://127.0.0.1:11434', model: '' } };
+let serverStatusLoaded = false;
 let providerSnapshot = { available: false, secureStorage: false, providers: [] };
 let learningPhase = -1;
 let learningRunError = false;
@@ -824,6 +825,7 @@ async function refreshStatus() {
   try {
     const response = await fetch('/api/status');
     statusSnapshot = await response.json();
+    serverStatusLoaded = response.ok;
     await loadOwnerProfile();
     const models = statusSnapshot.models || [];
     const canManage = statusSnapshot.owner === true;
@@ -1106,6 +1108,31 @@ async function prepareLocalModel() {
   $('#settingsMessage').textContent = `Ollama está listo. Descargando ${preferred}; ocupa varios GB y puede tardar.`;
   $('#downloadModel').click();
 }
+const GUEST_PRIVACY_NOTICE_VERSION = '2026-11-v1';
+
+function confirmGuestPrivacy() {
+  let accepted = '';
+  try { accepted = localStorage.getItem('bit-by-orbit.guest-privacy'); } catch {}
+  if (accepted === GUEST_PRIVACY_NOTICE_VERSION) return Promise.resolve(true);
+  const dialog = $('#guestPrivacyDialog');
+  const checkbox = $('#guestPrivacyCheck');
+  const continueButton = $('#guestPrivacyContinue');
+  checkbox.checked = false;
+  continueButton.disabled = true;
+  checkbox.addEventListener('change', () => { continueButton.disabled = !checkbox.checked; });
+  return new Promise((resolve) => {
+    const blockEscape = (event) => event.preventDefault();
+    dialog.addEventListener('cancel', blockEscape);
+    continueButton.addEventListener('click', () => {
+      try { localStorage.setItem('bit-by-orbit.guest-privacy', GUEST_PRIVACY_NOTICE_VERSION); } catch {}
+      dialog.removeEventListener('cancel', blockEscape);
+      dialog.close();
+      resolve(true);
+    }, { once: true });
+    dialog.showModal();
+  });
+}
+
 async function initializeApp() {
   $('#shortcutHint').textContent = navigator.platform.toLowerCase().includes('mac') ? '⌘ K' : 'Ctrl K';
   const learningPanel = $('#skillsPanel');
@@ -1116,6 +1143,7 @@ async function initializeApp() {
     $('#installOllama').disabled = ['installing', 'starting'].includes(status?.state);
   });
   await refreshStatus();
+  if (serverStatusLoaded && statusSnapshot.owner !== true) await confirmGuestPrivacy();
   await refreshProviders();
   await syncWorkspaceFromServer();
   recoverInterruptedGenerations();

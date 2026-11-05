@@ -1,7 +1,7 @@
 {
   "name": "nexo-ai",
   "description": "Bit by Orbit: asistente personal de inteligencia artificial local y multiagente",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "private": true,
   "type": "module",
   "scripts": {
